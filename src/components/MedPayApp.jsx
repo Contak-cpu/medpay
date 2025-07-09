@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, User, CreditCard, DollarSign, Calendar, TrendingUp, Zap, Upload, Check, Clock, FileImage, X, Menu, AlertCircle } from 'lucide-react';
 import { useSupabase } from '../hooks/useSupabase';
+import Navigation from './Navigation';
 
 const ConsultorioPagosApp = () => {
   const [activeTab, setActiveTab] = useState('profesionales');
@@ -63,7 +64,6 @@ const ConsultorioPagosApp = () => {
   const {
     profesionales,
     pagos,
-    logs,
     loading,
     error,
     addProfesional,
@@ -677,148 +677,12 @@ const ConsultorioPagosApp = () => {
       </div>
 
       {/* Navigation */}
-      <div className="bg-black/10 backdrop-blur-md border-b border-purple-500/10">
-        <div className="container mx-auto px-4 sm:px-6">
-          {/* Mobile Menu Button */}
-          <div className="flex lg:hidden">
-            <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="flex items-center space-x-2 px-4 py-4 text-gray-300 hover:text-purple-300 transition-all"
-            >
-              <Menu className="w-5 h-5" />
-              <span className="text-sm font-medium">Menú</span>
-            </button>
-          </div>
-          
-          {/* Desktop Navigation */}
-          <nav className="hidden lg:flex space-x-8">
-            <button
-              onClick={() => setActiveTab('profesionales')}
-              className={`flex items-center space-x-2 px-4 py-4 border-b-2 transition-all ${
-                activeTab === 'profesionales' ? 'border-purple-400 text-purple-400' : 'border-transparent text-gray-300 hover:text-purple-300'
-              }`}
-            >
-              <User className="w-5 h-5" />
-              <span>Profesionales</span>
-            </button>
-            
-            <button
-              onClick={() => setActiveTab('registro')}
-              className={`flex items-center space-x-2 px-4 py-4 border-b-2 transition-all ${
-                activeTab === 'registro' ? 'border-purple-400 text-purple-400' : 'border-transparent text-gray-300 hover:text-purple-300'
-              }`}
-            >
-              <Plus className="w-5 h-5" />
-              <span>Registro de Pagos</span>
-            </button>
-            
-            <button
-              onClick={() => setActiveTab('dashboard')}
-              className={`flex items-center space-x-2 px-4 py-4 border-b-2 transition-all ${
-                activeTab === 'dashboard' ? 'border-purple-400 text-purple-400' : 'border-transparent text-gray-300 hover:text-purple-300'
-              }`}
-            >
-              <TrendingUp className="w-5 h-5" />
-              <span>Dashboard</span>
-            </button>
-            
-            <button
-              onClick={() => setActiveTab('deudas')}
-              className={`flex items-center space-x-2 px-4 py-4 border-b-2 transition-all ${
-                activeTab === 'deudas' ? 'border-purple-400 text-purple-400' : 'border-transparent text-gray-300 hover:text-purple-300'
-              }`}
-            >
-              <DollarSign className="w-5 h-5" />
-              <span>Estado de Deudas</span>
-            </button>
-            
-            <button
-              onClick={() => setActiveTab('reportes')}
-              className={`flex items-center space-x-2 px-4 py-4 border-b-2 transition-all ${
-                activeTab === 'reportes' ? 'border-purple-400 text-purple-400' : 'border-transparent text-gray-300 hover:text-purple-300'
-              }`}
-            >
-              <TrendingUp className="w-5 h-5" />
-              <span>Reportes</span>
-            </button>
-            
-            <button
-              onClick={() => setActiveTab('logs')}
-              className={`flex items-center space-x-2 px-4 py-4 border-b-2 transition-all ${
-                activeTab === 'logs' ? 'border-purple-400 text-purple-400' : 'border-transparent text-gray-300 hover:text-purple-300'
-              }`}
-            >
-              <Calendar className="w-5 h-5" />
-              <span>Logs</span>
-            </button>
-          </nav>
-          
-          {/* Mobile Navigation */}
-          {mobileMenuOpen && (
-            <nav className="lg:hidden flex flex-col space-y-2 py-4">
-              <button
-                onClick={() => { setActiveTab('profesionales'); setMobileMenuOpen(false); }}
-                className={`flex items-center space-x-2 px-4 py-3 rounded-lg transition-all ${
-                  activeTab === 'profesionales' ? 'bg-purple-500/20 text-purple-400' : 'text-gray-300 hover:bg-purple-500/10 hover:text-purple-300'
-                }`}
-              >
-                <User className="w-5 h-5" />
-                <span>Profesionales</span>
-              </button>
-              
-              <button
-                onClick={() => { setActiveTab('registro'); setMobileMenuOpen(false); }}
-                className={`flex items-center space-x-2 px-4 py-3 rounded-lg transition-all ${
-                  activeTab === 'registro' ? 'bg-purple-500/20 text-purple-400' : 'text-gray-300 hover:bg-purple-500/10 hover:text-purple-300'
-                }`}
-              >
-                <Plus className="w-5 h-5" />
-                <span>Registro de Pagos</span>
-              </button>
-              
-              <button
-                onClick={() => { setActiveTab('dashboard'); setMobileMenuOpen(false); }}
-                className={`flex items-center space-x-2 px-4 py-3 rounded-lg transition-all ${
-                  activeTab === 'dashboard' ? 'bg-purple-500/20 text-purple-400' : 'text-gray-300 hover:bg-purple-500/10 hover:text-purple-300'
-                }`}
-              >
-                <TrendingUp className="w-5 h-5" />
-                <span>Dashboard</span>
-              </button>
-              
-              <button
-                onClick={() => { setActiveTab('deudas'); setMobileMenuOpen(false); }}
-                className={`flex items-center space-x-2 px-4 py-3 rounded-lg transition-all ${
-                  activeTab === 'deudas' ? 'bg-purple-500/20 text-purple-400' : 'text-gray-300 hover:bg-purple-500/10 hover:text-purple-300'
-                }`}
-              >
-                <DollarSign className="w-5 h-5" />
-                <span>Estado de Deudas</span>
-              </button>
-              
-              <button
-                onClick={() => { setActiveTab('reportes'); setMobileMenuOpen(false); }}
-                className={`flex items-center space-x-2 px-4 py-3 rounded-lg transition-all ${
-                  activeTab === 'reportes' ? 'bg-purple-500/20 text-purple-400' : 'text-gray-300 hover:bg-purple-500/10 hover:text-purple-300'
-                }`}
-              >
-                <TrendingUp className="w-5 h-5" />
-                <span>Reportes</span>
-              </button>
-              
-              <button
-                onClick={() => { setActiveTab('logs'); setMobileMenuOpen(false); }}
-                className={`flex items-center space-x-2 px-4 py-3 rounded-lg transition-all ${
-                  activeTab === 'logs' ? 'bg-purple-500/20 text-purple-400' : 'text-gray-300 hover:bg-purple-500/10 hover:text-purple-300'
-                }`}
-              >
-                <Calendar className="w-5 h-5" />
-                <span>Logs</span>
-              </button>
-            </nav>
-          )}
-        </div>
-      </div>
+      <Navigation
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        mobileMenuOpen={mobileMenuOpen}
+        setMobileMenuOpen={setMobileMenuOpen}
+      />
 
       <div className="container mx-auto px-4 sm:px-6 py-4 sm:py-8">
         {/* Loading indicator */}
