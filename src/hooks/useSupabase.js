@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { db } from '../lib/supabase'
+import { db } from '../file/supabase'
 
 export function useSupabase() {
   const [profesionales, setProfesionales] = useState([])
