@@ -39,6 +39,12 @@ export function useSupabase() {
   const addProfesional = async (profesionalData) => {
     try {
       const newProfesional = await db.createProfesional(profesionalData)
+      
+      // Verificar que el profesional se creó correctamente
+      if (!newProfesional || !newProfesional.id) {
+        throw new Error('No se pudo crear el profesional. Respuesta inválida del servidor.')
+      }
+      
       setProfesionales(prev => [...prev, newProfesional])
       
       // Agregar log
@@ -51,7 +57,8 @@ export function useSupabase() {
       return newProfesional
     } catch (err) {
       console.error('Error adding profesional:', err)
-      throw err
+      // Asegurar que el error se propague correctamente
+      throw new Error(err.message || 'Error al agregar profesional')
     }
   }
 
