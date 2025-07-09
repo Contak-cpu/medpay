@@ -10,15 +10,17 @@ export function useSupabase() {
 
   // Cargar datos iniciales
   useEffect(() => {
+    console.log('🔄 useSupabase: Iniciando carga de datos...')
     loadAllData()
   }, [])
 
   const loadAllData = async () => {
     try {
+      console.log('🔄 useSupabase: loadAllData iniciado')
       setLoading(true)
       setError(null)
       
-      console.log('Iniciando carga de datos...')
+      console.log('🔄 useSupabase: Cargando datos de Supabase...')
       
       const [profesionalesData, pagosData, logsData] = await Promise.all([
         db.getProfesionales(),
@@ -26,7 +28,7 @@ export function useSupabase() {
         db.getLogs()
       ])
       
-      console.log('Datos cargados exitosamente:', {
+      console.log('✅ useSupabase: Datos cargados exitosamente:', {
         profesionales: profesionalesData.length,
         pagos: pagosData.length,
         logs: logsData.length
@@ -36,9 +38,10 @@ export function useSupabase() {
       setPagos(pagosData)
       setLogs(logsData)
     } catch (err) {
-      console.error('Error loading data:', err)
+      console.error('❌ useSupabase: Error loading data:', err)
       setError(err.message || 'Error al cargar datos')
     } finally {
+      console.log('🔄 useSupabase: Finalizando carga de datos')
       setLoading(false)
     }
   }
@@ -46,6 +49,7 @@ export function useSupabase() {
   // PROFESIONALES
   const addProfesional = async (profesionalData) => {
     try {
+      console.log('🔄 useSupabase: Agregando profesional:', profesionalData)
       const newProfesional = await db.createProfesional(profesionalData)
       
       // Verificar que el profesional se creó correctamente
@@ -53,6 +57,7 @@ export function useSupabase() {
         throw new Error('No se pudo crear el profesional. Respuesta inválida del servidor.')
       }
       
+      console.log('✅ useSupabase: Profesional agregado exitosamente:', newProfesional)
       setProfesionales(prev => [...prev, newProfesional])
       
       // Agregar log
@@ -64,7 +69,7 @@ export function useSupabase() {
       
       return newProfesional
     } catch (err) {
-      console.error('Error adding profesional:', err)
+      console.error('❌ useSupabase: Error adding profesional:', err)
       // Asegurar que el error se propague correctamente
       throw new Error(err.message || 'Error al agregar profesional')
     }
@@ -72,6 +77,7 @@ export function useSupabase() {
 
   const updateProfesional = async (id, updates) => {
     try {
+      console.log('🔄 useSupabase: Actualizando profesional:', id, updates)
       const updatedProfesional = await db.updateProfesional(id, updates)
       setProfesionales(prev => 
         prev.map(p => p.id === id ? updatedProfesional : p)
@@ -84,13 +90,14 @@ export function useSupabase() {
       
       return updatedProfesional
     } catch (err) {
-      console.error('Error updating profesional:', err)
+      console.error('❌ useSupabase: Error updating profesional:', err)
       throw err
     }
   }
 
   const deleteProfesional = async (id) => {
     try {
+      console.log('🔄 useSupabase: Eliminando profesional:', id)
       const profesional = profesionales.find(p => p.id === id)
       await db.deleteProfesional(id)
       setProfesionales(prev => prev.filter(p => p.id !== id))
@@ -100,7 +107,7 @@ export function useSupabase() {
         nombre: profesional?.nombre
       })
     } catch (err) {
-      console.error('Error deleting profesional:', err)
+      console.error('❌ useSupabase: Error deleting profesional:', err)
       throw err
     }
   }
@@ -108,6 +115,7 @@ export function useSupabase() {
   // PAGOS
   const addPago = async (pagoData) => {
     try {
+      console.log('🔄 useSupabase: Agregando pago:', pagoData)
       const newPago = await db.createPago(pagoData)
       
       // Recargar pagos para obtener datos completos con JOIN
@@ -125,13 +133,14 @@ export function useSupabase() {
       
       return newPago
     } catch (err) {
-      console.error('Error adding pago:', err)
+      console.error('❌ useSupabase: Error adding pago:', err)
       throw err
     }
   }
 
   const updatePago = async (pagoId, updates) => {
     try {
+      console.log('🔄 useSupabase: Actualizando pago:', pagoId, updates)
       await db.updatePago(pagoId, updates)
       
       // Recargar pagos
@@ -140,13 +149,14 @@ export function useSupabase() {
       
       return true
     } catch (err) {
-      console.error('Error updating pago:', err)
+      console.error('❌ useSupabase: Error updating pago:', err)
       throw err
     }
   }
 
   const markPagoAsCompleted = async (pagoId, estado, comprobanteProfesional, comprobanteClinica) => {
     try {
+      console.log('🔄 useSupabase: Marcando pago como completado:', pagoId, estado)
       const updates = {
         estado,
         fechaPago: new Date().toISOString()
@@ -172,13 +182,14 @@ export function useSupabase() {
       
       return true
     } catch (err) {
-      console.error('Error marking pago as completed:', err)
+      console.error('❌ useSupabase: Error marking pago as completed:', err)
       throw err
     }
   }
 
   const deletePago = async (pagoId) => {
     try {
+      console.log('🔄 useSupabase: Eliminando pago:', pagoId)
       const pago = pagos.find(p => p.id === pagoId)
       await db.deletePago(pagoId)
       
@@ -192,7 +203,7 @@ export function useSupabase() {
         fecha: pago?.fecha
       })
     } catch (err) {
-      console.error('Error deleting pago:', err)
+      console.error('❌ useSupabase: Error deleting pago:', err)
       throw err
     }
   }
@@ -200,6 +211,7 @@ export function useSupabase() {
   // LOGS
   const addLog = async (tipo, descripcion, detalles = {}) => {
     try {
+      console.log('🔄 useSupabase: Agregando log:', tipo, descripcion)
       const logData = {
         tipo,
         descripcion,
@@ -224,7 +236,7 @@ export function useSupabase() {
       
       return newLog
     } catch (err) {
-      console.error('Error adding log:', err)
+      console.error('❌ useSupabase: Error adding log:', err)
       throw err
     }
   }
@@ -232,6 +244,7 @@ export function useSupabase() {
   // UTILIDADES
   const clearAllData = async () => {
     try {
+      console.log('🔄 useSupabase: Limpiando todos los datos...')
       await db.clearAllData()
       setProfesionales([])
       setPagos([])
@@ -241,12 +254,13 @@ export function useSupabase() {
         timestamp: new Date().toISOString()
       })
     } catch (err) {
-      console.error('Error clearing data:', err)
+      console.error('❌ useSupabase: Error clearing data:', err)
       throw err
     }
   }
 
   const refreshData = async () => {
+    console.log('🔄 useSupabase: Refrescando datos...')
     await loadAllData()
   }
 
