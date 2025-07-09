@@ -5,6 +5,59 @@ import { useSupabase } from '../hooks/useSupabase';
 const ConsultorioPagosApp = () => {
   const [activeTab, setActiveTab] = useState('profesionales');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showAddProfesional, setShowAddProfesional] = useState(false);
+  const [showNotification, setShowNotification] = useState('');
+  const [showComprobanteModal, setShowComprobanteModal] = useState(false);
+  const [pagoParaComprobar, setPagoParaComprobar] = useState(null);
+  const [comprobantes, setComprobantes] = useState({
+    profesional: '',
+    clinica: ''
+  });
+  const [isSubmittingProfesional, setIsSubmittingProfesional] = useState(false);
+  
+  // Filtros para deudas
+  const [filtros, setFiltros] = useState({
+    profesional: '',
+    metodoPago: '',
+    fechaDesde: '',
+    fechaHasta: '',
+    mostrarFiltros: false
+  });
+
+  // Filtros para reportes
+  const [filtrosReportes, setFiltrosReportes] = useState({
+    profesional: '',
+    fechaDesde: '',
+    fechaHasta: '',
+    mostrarFiltros: false
+  });
+
+  // Estado para vista detallada de profesional
+  const [profesionalDetallado, setProfesionalDetallado] = useState(null);
+
+  const [newProfesional, setNewProfesional] = useState({
+    nombre: '',
+    especialidad: '',
+    porcentaje: '',
+    valorTurno: ''
+  });
+
+  const [erroresProfesional, setErroresProfesional] = useState({
+    nombre: '',
+    especialidad: '',
+    porcentaje: '',
+    valorTurno: ''
+  });
+
+  const [newPago, setNewPago] = useState({
+    profesionalId: '',
+    paciente: '',
+    metodoPago: 'efectivo',
+    fecha: new Date().toISOString().split('T')[0],
+    hora: '09:00',
+    monto: '',
+    comprobante: ''
+  });
   
   // Hook de Supabase
   const {
@@ -64,62 +117,6 @@ const ConsultorioPagosApp = () => {
       </div>
     );
   }
-  
-  const [showAddProfesional, setShowAddProfesional] = useState(false);
-  const [showNotification, setShowNotification] = useState('');
-  const [showComprobanteModal, setShowComprobanteModal] = useState(false);
-  const [pagoParaComprobar, setPagoParaComprobar] = useState(null);
-  const [comprobantes, setComprobantes] = useState({
-    profesional: '',
-    clinica: ''
-  });
-  const [isSubmittingProfesional, setIsSubmittingProfesional] = useState(false);
-  
-  // Filtros para deudas
-  const [filtros, setFiltros] = useState({
-    profesional: '',
-    metodoPago: '',
-    fechaDesde: '',
-    fechaHasta: '',
-    mostrarFiltros: false
-  });
-
-  // Filtros para reportes
-  const [filtrosReportes, setFiltrosReportes] = useState({
-    profesional: '',
-    fechaDesde: '',
-    fechaHasta: '',
-    mostrarFiltros: false
-  });
-
-  // Estado para vista detallada de profesional
-  const [profesionalDetallado, setProfesionalDetallado] = useState(null);
-
-  const [newProfesional, setNewProfesional] = useState({
-    nombre: '',
-    especialidad: '',
-    porcentaje: '',
-    valorTurno: ''
-  });
-
-  const [erroresProfesional, setErroresProfesional] = useState({
-    nombre: '',
-    especialidad: '',
-    porcentaje: '',
-    valorTurno: ''
-  });
-
-  const [newPago, setNewPago] = useState({
-    profesionalId: '',
-    paciente: '',
-    metodoPago: 'efectivo',
-    fecha: new Date().toISOString().split('T')[0],
-    hora: '09:00',
-    monto: '',
-    comprobante: ''
-  });
-
-
 
   // Validaciones mejoradas (del .txt fusionado)
   const validarNombre = (nombre) => {
@@ -530,11 +527,11 @@ const ConsultorioPagosApp = () => {
     // Header del resumen general
     csvContent += "RESUMEN GENERAL\n";
     csvContent += "Concepto,Monto,Cantidad\n";
-    csvContent += `Total Facturado,${reportes.totalGeneral.toLocaleString()},${reportes.cantidadConsultas} consultas\n`;
-    csvContent += `Ganancias Profesionales,${reportes.totalGananciasProfesionales.toLocaleString()},-\n`;
-    csvContent += `Ganancias Clínica,${reportes.totalGananciasClinica.toLocaleString()},-\n`;
-    csvContent += `Efectivo,${reportes.totalEfectivo.toLocaleString()},-\n`;
-    csvContent += `Transferencias,${reportes.totalTransferencias.toLocaleString()},-\n`;
+    csvContent += `Total Facturado,${(reportes.totalGeneral || 0).toLocaleString()},${reportes.cantidadConsultas} consultas\n`;
+    csvContent += `Ganancias Profesionales,${(reportes.totalGananciasProfesionales || 0).toLocaleString()},-\n`;
+    csvContent += `Ganancias Clínica,${(reportes.totalGananciasClinica || 0).toLocaleString()},-\n`;
+    csvContent += `Efectivo,${(reportes.totalEfectivo || 0).toLocaleString()},-\n`;
+    csvContent += `Transferencias,${(reportes.totalTransferencias || 0).toLocaleString()},-\n`;
     csvContent += "\n";
     
     // Header del reporte por profesional
@@ -1017,11 +1014,11 @@ const ConsultorioPagosApp = () => {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-300 text-sm">Valor turno:</span>
-                      <span className="text-green-400 font-semibold text-sm">${profesional.valorTurno.toLocaleString()}</span>
+                      <span className="text-green-400 font-semibold text-sm">${(profesional.valorTurno || 0).toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-300 text-sm">Ganancia por turno:</span>
-                      <span className="text-blue-400 font-semibold text-sm">${(profesional.valorTurno * profesional.porcentaje / 100).toLocaleString()}</span>
+                      <span className="text-blue-400 font-semibold text-sm">${((profesional.valorTurno || 0) * (profesional.porcentaje || 0) / 100).toLocaleString()}</span>
                     </div>
                   </div>
                 </div>
@@ -1189,7 +1186,7 @@ const ConsultorioPagosApp = () => {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-green-300 text-xs sm:text-sm font-medium">Efectivo Hoy</p>
-                    <p className="text-lg sm:text-2xl font-bold text-green-400">${stats.totalEfectivoHoy.toLocaleString()}</p>
+                    <p className="text-lg sm:text-2xl font-bold text-green-400">${(stats.totalEfectivoHoy || 0).toLocaleString()}</p>
                     <p className="text-xs text-green-300 mt-1">Clínica cobra</p>
                   </div>
                   <DollarSign className="w-6 h-6 sm:w-8 sm:h-8 text-green-400" />
@@ -1200,7 +1197,7 @@ const ConsultorioPagosApp = () => {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-blue-300 text-xs sm:text-sm font-medium">Transferencias Hoy</p>
-                    <p className="text-lg sm:text-2xl font-bold text-blue-400">${stats.totalTransferenciaHoy.toLocaleString()}</p>
+                    <p className="text-lg sm:text-2xl font-bold text-blue-400">${(stats.totalTransferenciaHoy || 0).toLocaleString()}</p>
                     <p className="text-xs text-blue-300 mt-1">Profesional cobra</p>
                   </div>
                   <CreditCard className="w-6 h-6 sm:w-8 sm:h-8 text-blue-400" />
@@ -1250,7 +1247,7 @@ const ConsultorioPagosApp = () => {
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="font-semibold">${pago.monto.toLocaleString()}</p>
+                      <p className="font-semibold">${(pago.monto || 0).toLocaleString()}</p>
                       <p className="text-xs text-gray-400">{pago.metodoPago}</p>
                       {pago.fechaPago && (
                         <p className="text-xs text-green-400">
@@ -1379,12 +1376,12 @@ const ConsultorioPagosApp = () => {
                       </div>
                       <div className="text-right flex items-center space-x-4">
                         <div>
-                          <p className="font-semibold">${pago.monto.toLocaleString()}</p>
+                          <p className="font-semibold">${(pago.monto || 0).toLocaleString()}</p>
                           <p className="text-xs text-gray-400">{pago.metodoPago}</p>
                           {pago.metodoPago === 'efectivo' ? (
-                            <p className="text-xs text-orange-400">Debe: ${pago.gananciaProfesional.toLocaleString()}</p>
+                            <p className="text-xs text-orange-400">Debe: ${(pago.gananciaProfesional || 0).toLocaleString()}</p>
                           ) : (
-                            <p className="text-xs text-blue-400">Comisión: ${pago.gananciaClinica.toLocaleString()}</p>
+                            <p className="text-xs text-blue-400">Comisión: ${(pago.gananciaClinica || 0).toLocaleString()}</p>
                           )}
                         </div>
                         <button
@@ -1434,7 +1431,7 @@ const ConsultorioPagosApp = () => {
                           <Clock className="w-5 h-5 text-orange-400" />
                           <span className="font-semibold text-orange-400">Efectivos Pendientes</span>
                         </div>
-                        <p className="text-2xl font-bold text-orange-300">${deuda.efectivoPendiente.toLocaleString()}</p>
+                        <p className="text-2xl font-bold text-orange-300">${(deuda.efectivoPendiente || 0).toLocaleString()}</p>
                         <p className="text-sm text-orange-300">{deuda.cantidadEfectivos} pagos pendientes</p>
                       </div>
                     )}
@@ -1445,7 +1442,7 @@ const ConsultorioPagosApp = () => {
                           <TrendingUp className="w-5 h-5 text-blue-400" />
                           <span className="font-semibold text-blue-400">Comisiones Pendientes</span>
                         </div>
-                        <p className="text-2xl font-bold text-blue-300">${deuda.comisionPendiente.toLocaleString()}</p>
+                        <p className="text-2xl font-bold text-blue-300">${(deuda.comisionPendiente || 0).toLocaleString()}</p>
                         <p className="text-sm text-blue-300">{deuda.cantidadTransferencias} transferencias</p>
                       </div>
                     )}
@@ -1550,7 +1547,7 @@ const ConsultorioPagosApp = () => {
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="text-green-300 text-sm font-medium">Total Facturado</p>
-                          <p className="text-2xl font-bold text-green-400">${reportes.totalGeneral.toLocaleString()}</p>
+                          <p className="text-2xl font-bold text-green-400">${(reportes.totalGeneral || 0).toLocaleString()}</p>
                           <p className="text-xs text-green-300 mt-1">{reportes.cantidadConsultas} consultas</p>
                         </div>
                         <DollarSign className="w-8 h-8 text-green-400" />
@@ -1561,7 +1558,7 @@ const ConsultorioPagosApp = () => {
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="text-blue-300 text-sm font-medium">Ganancias Profesionales</p>
-                          <p className="text-2xl font-bold text-blue-400">${reportes.totalGananciasProfesionales.toLocaleString()}</p>
+                          <p className="text-2xl font-bold text-blue-400">${(reportes.totalGananciasProfesionales || 0).toLocaleString()}</p>
                           <p className="text-xs text-blue-300 mt-1">Total a pagar</p>
                         </div>
                         <User className="w-8 h-8 text-blue-400" />
@@ -1572,7 +1569,7 @@ const ConsultorioPagosApp = () => {
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="text-purple-300 text-sm font-medium">Ganancias Clínica</p>
-                          <p className="text-2xl font-bold text-purple-400">${reportes.totalGananciasClinica.toLocaleString()}</p>
+                          <p className="text-2xl font-bold text-purple-400">${(reportes.totalGananciasClinica || 0).toLocaleString()}</p>
                           <p className="text-xs text-purple-300 mt-1">Comisiones</p>
                         </div>
                         <TrendingUp className="w-8 h-8 text-purple-400" />
@@ -1602,7 +1599,7 @@ const ConsultorioPagosApp = () => {
                           <DollarSign className="w-5 h-5 text-green-400" />
                           <span className="font-semibold text-green-400">Efectivo</span>
                         </div>
-                        <p className="text-2xl font-bold text-green-300">${reportes.totalEfectivo.toLocaleString()}</p>
+                        <p className="text-2xl font-bold text-green-300">${(reportes.totalEfectivo || 0).toLocaleString()}</p>
                         <p className="text-sm text-green-300">
                           {Math.round((reportes.totalEfectivo / reportes.totalGeneral) * 100) || 0}% del total
                         </p>
@@ -1613,7 +1610,7 @@ const ConsultorioPagosApp = () => {
                           <CreditCard className="w-5 h-5 text-blue-400" />
                           <span className="font-semibold text-blue-400">Transferencias</span>
                         </div>
-                        <p className="text-2xl font-bold text-blue-300">${reportes.totalTransferencias.toLocaleString()}</p>
+                        <p className="text-2xl font-bold text-blue-300">${(reportes.totalTransferencias || 0).toLocaleString()}</p>
                         <p className="text-sm text-blue-300">
                           {Math.round((reportes.totalTransferencias / reportes.totalGeneral) * 100) || 0}% del total
                         </p>
@@ -1649,7 +1646,7 @@ const ConsultorioPagosApp = () => {
                                 <p className="text-sm text-gray-300">{reporte.especialidad}</p>
                               </div>
                               <div className="text-right">
-                                <p className="text-lg font-bold text-green-400">${reporte.totalFacturado.toLocaleString()}</p>
+                                <p className="text-lg font-bold text-green-400">${(reporte.totalFacturado || 0).toLocaleString()}</p>
                                 <p className="text-xs text-gray-400">{reporte.cantidadConsultas} consultas</p>
                                 <p className="text-xs text-purple-400">👆 Click para detalles</p>
                               </div>
@@ -1658,22 +1655,22 @@ const ConsultorioPagosApp = () => {
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                               <div>
                                 <p className="text-gray-300">Ganancia Profesional</p>
-                                <p className="font-semibold text-blue-400">${reporte.gananciaProfesional.toLocaleString()}</p>
+                                <p className="font-semibold text-blue-400">${(reporte.gananciaProfesional || 0).toLocaleString()}</p>
                               </div>
                               <div>
                                 <p className="text-gray-300">Comisión Clínica</p>
-                                <p className="font-semibold text-purple-400">${reporte.gananciaClinica.toLocaleString()}</p>
+                                <p className="font-semibold text-purple-400">${(reporte.gananciaClinica || 0).toLocaleString()}</p>
                               </div>
                               <div>
                                 <p className="text-gray-300">Efectivos</p>
                                 <p className="font-semibold text-green-400">
-                                  {reporte.efectivos.cantidad} - ${reporte.efectivos.monto.toLocaleString()}
+                                  {reporte.efectivos.cantidad} - ${(reporte.efectivos.monto || 0).toLocaleString()}
                                 </p>
                               </div>
                               <div>
                                 <p className="text-gray-300">Transferencias</p>
                                 <p className="font-semibold text-cyan-400">
-                                  {reporte.transferencias.cantidad} - ${reporte.transferencias.monto.toLocaleString()}
+                                  {reporte.transferencias.cantidad} - ${(reporte.transferencias.monto || 0).toLocaleString()}
                                 </p>
                               </div>
                             </div>
@@ -1701,12 +1698,12 @@ const ConsultorioPagosApp = () => {
                                   <h3 className="text-2xl font-bold">{detalles.profesional.nombre}</h3>
                                   <p className="text-purple-300">{detalles.profesional.especialidad}</p>
                                   <p className="text-sm text-gray-400">
-                                    {detalles.profesional.porcentaje}% profesional • ${detalles.profesional.valorTurno.toLocaleString()} por turno
+                                    {detalles.profesional.porcentaje}% profesional • ${(detalles.profesional.valorTurno || 0).toLocaleString()} por turno
                                   </p>
                                 </div>
                                 <div className="text-right">
                                   <p className="text-3xl font-bold text-green-400">
-                                    ${detalles.estadisticas.totalFacturado.toLocaleString()}
+                                    ${(detalles.estadisticas.totalFacturado || 0).toLocaleString()}
                                   </p>
                                   <p className="text-sm text-gray-300">Total facturado</p>
                                 </div>
@@ -1726,7 +1723,7 @@ const ConsultorioPagosApp = () => {
                               <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-4">
                                 <p className="text-green-300 text-sm">Ganancia Total</p>
                                 <p className="text-2xl font-bold text-green-400">
-                                  ${detalles.estadisticas.totalGanado.toLocaleString()}
+                                  ${(detalles.estadisticas.totalGanado || 0).toLocaleString()}
                                 </p>
                                 <p className="text-xs text-green-300">
                                   ${Math.round(detalles.estadisticas.promedioPorConsulta * detalles.profesional.porcentaje / 100).toLocaleString()} promedio
@@ -1766,7 +1763,7 @@ const ConsultorioPagosApp = () => {
                                     <div>
                                       <p className="text-orange-300 text-sm">Efectivos Pendientes</p>
                                       <p className="text-xl font-bold text-orange-400">
-                                        ${detalles.pendientes.efectivos.toLocaleString()}
+                                        ${(detalles.pendientes.efectivos || 0).toLocaleString()}
                                       </p>
                                       <p className="text-xs text-orange-300">
                                         {detalles.pendientes.cantidadEfectivos} pagos pendientes
@@ -1777,7 +1774,7 @@ const ConsultorioPagosApp = () => {
                                     <div>
                                       <p className="text-blue-300 text-sm">Comisiones Pendientes</p>
                                       <p className="text-xl font-bold text-blue-400">
-                                        ${detalles.pendientes.transferencias.toLocaleString()}
+                                        ${(detalles.pendientes.transferencias || 0).toLocaleString()}
                                       </p>
                                       <p className="text-xs text-blue-300">
                                         {detalles.pendientes.cantidadTransferencias} transferencias
@@ -1808,12 +1805,12 @@ const ConsultorioPagosApp = () => {
                                       </div>
                                     </div>
                                     <div className="text-right">
-                                      <p className="font-semibold">${pago.monto.toLocaleString()}</p>
+                                      <p className="font-semibold">${(pago.monto || 0).toLocaleString()}</p>
                                       <p className="text-xs text-gray-400">{pago.metodoPago}</p>
                                       <p className="text-xs">
-                                        <span className="text-blue-400">+${pago.gananciaProfesional.toLocaleString()}</span>
+                                        <span className="text-blue-400">+${(pago.gananciaProfesional || 0).toLocaleString()}</span>
                                         {' / '}
-                                        <span className="text-purple-400">${pago.gananciaClinica.toLocaleString()}</span>
+                                                                                  <span className="text-purple-400">${(pago.gananciaClinica || 0).toLocaleString()}</span>
                                       </p>
                                     </div>
                                   </div>
