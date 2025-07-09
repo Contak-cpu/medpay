@@ -1,17 +1,43 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { db } from '../file/supabase'
+import { shouldUseTestData } from '../config/environment'
+import { useTestData } from './useTestData'
 
-export function useSupabase() {
+export function useSupabase(config = {}) {
+  const { setProfesionales: setProfesionalesZustand, setPagos: setPagosZustand } = config;
+  
   const [profesionales, setProfesionales] = useState([])
   const [pagos, setPagos] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false) // Cambiado a false para carga más rápida
   const [error, setError] = useState(null)
+  const [initialized, setInitialized] = useState(false)
+  
+  // Hook de datos de testeo
+  const testDataHook = useTestData()
+  const isTestMode = shouldUseTestData() && testDataHook.isTestMode
 
-  // Cargar datos iniciales
+  // Función para sincronizar con Zustand
+  const syncWithZustand = useCallback((newProfesionales, newPagos) => {
+    if (setProfesionalesZustand) {
+      setProfesionalesZustand(newProfesionales);
+    }
+    if (setPagosZustand) {
+      setPagosZustand(newPagos);
+    }
+  }, [setProfesionalesZustand, setPagosZustand]);
+
+  // Cargar datos iniciales de forma asíncrona
   useEffect(() => {
-    console.log('🔄 useSupabase: Iniciando carga de datos...')
-    loadAllData()
-  }, [])
+    if (!initialized) {
+      console.log('🔄 useSupabase: Iniciando carga de datos...')
+      // Delay para no bloquear la carga inicial
+      const timer = setTimeout(() => {
+        loadAllData()
+      }, 100);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [initialized, isTestMode, testDataHook.isTestMode])
 
   const loadAllData = async () => {
     try {
@@ -19,11 +45,30 @@ export function useSupabase() {
       setLoading(true)
       setError(null)
       
+      if (isTestMode) {
+        console.log('🧪 useSupabase: Usando datos de testeo')
+        const testProfesionales = [...testDataHook.profesionales];
+        const testPagos = [...testDataHook.pagos];
+        setProfesionales(testProfesionales)
+        setPagos(testPagos)
+        syncWithZustand(testProfesionales, testPagos);
+        setInitialized(true)
+        setLoading(false)
+        return
+      }
+      
       console.log('🔄 useSupabase: Cargando datos de Supabase...')
       
+      // Cargar datos en paralelo para mayor velocidad
       const [profesionalesData, pagosData] = await Promise.all([
-        db.getProfesionales(),
-        db.getPagos()
+        db.getProfesionales().catch(err => {
+          console.warn('⚠️ Error cargando profesionales:', err);
+          return [];
+        }),
+        db.getPagos().catch(err => {
+          console.warn('⚠️ Error cargando pagos:', err);
+          return [];
+        })
       ])
       
       console.log('✅ useSupabase: Datos cargados exitosamente:', {
@@ -33,9 +78,13 @@ export function useSupabase() {
       
       setProfesionales(profesionalesData)
       setPagos(pagosData)
+      syncWithZustand(profesionalesData, pagosData);
+      setInitialized(true)
     } catch (err) {
       console.error('❌ useSupabase: Error loading data:', err)
       setError(err.message || 'Error al cargar datos')
+      // Aún así, marcar como inicializado para que la app funcione
+      setInitialized(true)
     } finally {
       console.log('🔄 useSupabase: Finalizando carga de datos')
       setLoading(false)
@@ -46,6 +95,19 @@ export function useSupabase() {
   const addProfesional = async (profesionalData) => {
     try {
       console.log('🔄 useSupabase: Agregando profesional:', profesionalData)
+      
+      if (isTestMode) {
+        console.log('🧪 useSupabase: Agregando profesional en modo testeo')
+        testDataHook.addTestProfesional(profesionalData)
+        // Sincronizar después de un breve delay para asegurar que el estado se actualice
+        setTimeout(() => {
+          const newProfesionales = [...testDataHook.profesionales];
+          setProfesionales(newProfesionales)
+          syncWithZustand(newProfesionales, pagos);
+        }, 0)
+        return { id: testDataHook.profesionales.length + 1, ...profesionalData }
+      }
+      
       const newProfesional = await db.createProfesional(profesionalData)
       
       // Verificar que el profesional se creó correctamente
@@ -54,7 +116,9 @@ export function useSupabase() {
       }
       
       console.log('✅ useSupabase: Profesional agregado exitosamente:', newProfesional)
-      setProfesionales(prev => [...prev, newProfesional])
+      const updatedProfesionales = [...profesionales, newProfesional];
+      setProfesionales(updatedProfesionales)
+      syncWithZustand(updatedProfesionales, pagos);
       
       return newProfesional
     } catch (err) {
@@ -67,10 +131,22 @@ export function useSupabase() {
   const updateProfesional = async (id, updates) => {
     try {
       console.log('🔄 useSupabase: Actualizando profesional:', id, updates)
+      
+      if (isTestMode) {
+        console.log('🧪 useSupabase: Actualizando profesional en modo testeo')
+        testDataHook.updateTestProfesional(id, updates)
+        setTimeout(() => {
+          const updatedProfesionales = [...testDataHook.profesionales];
+          setProfesionales(updatedProfesionales)
+          syncWithZustand(updatedProfesionales, pagos);
+        }, 0)
+        return { id, ...updates }
+      }
+      
       const updatedProfesional = await db.updateProfesional(id, updates)
-      setProfesionales(prev => 
-        prev.map(p => p.id === id ? updatedProfesional : p)
-      )
+      const updatedProfesionales = profesionales.map(p => p.id === id ? updatedProfesional : p);
+      setProfesionales(updatedProfesionales)
+      syncWithZustand(updatedProfesionales, pagos);
       
       return updatedProfesional
     } catch (err) {
@@ -82,9 +158,25 @@ export function useSupabase() {
   const deleteProfesional = async (id) => {
     try {
       console.log('🔄 useSupabase: Eliminando profesional:', id)
+      
+      if (isTestMode) {
+        console.log('🧪 useSupabase: Eliminando profesional en modo testeo')
+        testDataHook.deleteTestProfesional(id)
+        setTimeout(() => {
+          const updatedProfesionales = [...testDataHook.profesionales];
+          const updatedPagos = [...testDataHook.pagos];
+          setProfesionales(updatedProfesionales)
+          setPagos(updatedPagos)
+          syncWithZustand(updatedProfesionales, updatedPagos);
+        }, 0)
+        return
+      }
+      
       const profesional = profesionales.find(p => p.id === id)
       await db.deleteProfesional(id)
-      setProfesionales(prev => prev.filter(p => p.id !== id))
+      const updatedProfesionales = profesionales.filter(p => p.id !== id);
+      setProfesionales(updatedProfesionales)
+      syncWithZustand(updatedProfesionales, pagos);
       
     } catch (err) {
       console.error('❌ useSupabase: Error deleting profesional:', err)
@@ -96,11 +188,25 @@ export function useSupabase() {
   const addPago = async (pagoData) => {
     try {
       console.log('🔄 useSupabase: Agregando pago:', pagoData)
+      
+      if (isTestMode) {
+        console.log('🧪 useSupabase: Agregando pago en modo testeo')
+        testDataHook.addTestPago(pagoData)
+        // Sincronizar después de un breve delay para asegurar que el estado se actualice
+        setTimeout(() => {
+          const newPagos = [...testDataHook.pagos];
+          setPagos(newPagos)
+          syncWithZustand(profesionales, newPagos);
+        }, 0)
+        return { id: testDataHook.pagos.length + 1, ...pagoData }
+      }
+      
       const newPago = await db.createPago(pagoData)
       
       // Recargar pagos para obtener datos completos con JOIN
       const updatedPagos = await db.getPagos()
       setPagos(updatedPagos)
+      syncWithZustand(profesionales, updatedPagos);
       
       return newPago
     } catch (err) {
@@ -117,6 +223,7 @@ export function useSupabase() {
       // Recargar pagos
       const updatedPagos = await db.getPagos()
       setPagos(updatedPagos)
+      syncWithZustand(profesionales, updatedPagos);
       
       return true
     } catch (err) {
@@ -128,15 +235,31 @@ export function useSupabase() {
   const markPagoAsCompleted = async (pagoId, estado, comprobanteProfesional, comprobanteClinica) => {
     try {
       console.log('🔄 useSupabase: Marcando pago como completado:', pagoId, estado)
-      const updates = {
-        estado,
-        fechaPago: new Date().toISOString()
+      
+      if (isTestMode) {
+        console.log('🧪 useSupabase: Marcando pago como completado en modo testeo')
+        testDataHook.updateTestPagoStatus(pagoId, estado, comprobanteProfesional, comprobanteClinica)
+        setTimeout(() => {
+          const updatedPagos = [...testDataHook.pagos];
+          setPagos(updatedPagos)
+          syncWithZustand(profesionales, updatedPagos);
+        }, 0)
+        return true
       }
       
-      if (comprobanteProfesional) updates.comprobante = comprobanteProfesional
-      if (comprobanteClinica) updates.comprobanteClinica = comprobanteClinica
+      const updates = {
+        estado,
+        fecha_pago: new Date().toISOString(),
+        comprobante: comprobanteProfesional || null,
+        comprobante_clinica: comprobanteClinica || null
+      }
       
-      await updatePago(pagoId, updates)
+      await db.updatePago(pagoId, updates)
+      
+      // Recargar pagos
+      const updatedPagos = await db.getPagos()
+      setPagos(updatedPagos)
+      syncWithZustand(profesionales, updatedPagos);
       
       return true
     } catch (err) {
@@ -148,12 +271,24 @@ export function useSupabase() {
   const deletePago = async (pagoId) => {
     try {
       console.log('🔄 useSupabase: Eliminando pago:', pagoId)
-      const pago = pagos.find(p => p.id === pagoId)
+      
+      if (isTestMode) {
+        console.log('🧪 useSupabase: Eliminando pago en modo testeo')
+        testDataHook.deleteTestPago(pagoId)
+        setTimeout(() => {
+          const updatedPagos = [...testDataHook.pagos];
+          setPagos(updatedPagos)
+          syncWithZustand(profesionales, updatedPagos);
+        }, 0)
+        return
+      }
+      
       await db.deletePago(pagoId)
       
       // Recargar pagos
       const updatedPagos = await db.getPagos()
       setPagos(updatedPagos)
+      syncWithZustand(profesionales, updatedPagos);
       
     } catch (err) {
       console.error('❌ useSupabase: Error deleting pago:', err)
@@ -161,32 +296,71 @@ export function useSupabase() {
     }
   }
 
-  // UTILIDADES
   const refreshData = async () => {
     console.log('🔄 useSupabase: Refrescando datos...')
     await loadAllData()
   }
 
+  const clearAllData = async () => {
+    try {
+      console.log('🔄 useSupabase: Limpiando todos los datos...')
+      
+      if (isTestMode) {
+        console.log('🧪 useSupabase: Limpiando datos de testeo')
+        testDataHook.clearTestData()
+        setProfesionales([])
+        setPagos([])
+        syncWithZustand([], []);
+        return
+      }
+      
+      // En Supabase, podríamos implementar una función para limpiar datos
+      // Por ahora, solo limpiamos el estado local
+      setProfesionales([])
+      setPagos([])
+      syncWithZustand([], []);
+      
+    } catch (err) {
+      console.error('❌ useSupabase: Error clearing data:', err)
+      throw err
+    }
+  }
+
+  const addLog = async (tipo, descripcion, datos = {}) => {
+    try {
+      console.log('🔄 useSupabase: Agregando log:', tipo, descripcion)
+      
+      if (isTestMode) {
+        console.log('🧪 useSupabase: Agregando log en modo testeo')
+        testDataHook.addTestLog(tipo, descripcion, datos)
+        return
+      }
+      
+      // En Supabase, podríamos implementar logging
+      console.log('📝 Log:', { tipo, descripcion, datos, timestamp: new Date().toISOString() })
+      
+    } catch (err) {
+      console.error('❌ useSupabase: Error adding log:', err)
+      // No lanzar error para logs
+    }
+  }
+
   return {
-    // Estado
     profesionales,
     pagos,
     loading,
     error,
-    
-    // Acciones de Profesionales
     addProfesional,
     updateProfesional,
     deleteProfesional,
-    
-    // Acciones de Pagos
     addPago,
     updatePago,
     markPagoAsCompleted,
     deletePago,
-    
-    // Utilidades
     refreshData,
-    loadAllData
+    clearAllData,
+    addLog,
+    isTestMode,
+    testDataHook
   }
 }

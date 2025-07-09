@@ -3,8 +3,9 @@ import React from 'react';
 const tabs = [
   { id: 'profesionales', label: 'Profesionales' },
   { id: 'pagos', label: 'Pagos' },
+  { id: 'dashboard', label: 'Dashboard' },
+  { id: 'deudas', label: 'Estado de Deuda' },
   { id: 'reportes', label: 'Reportes' },
-  // Puedes agregar más tabs aquí si lo necesitas
 ];
 
 export default function Navigation({ activeTab, setActiveTab, mobileMenuOpen, setMobileMenuOpen }) {

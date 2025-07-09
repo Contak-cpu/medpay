@@ -1,55 +1,75 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
 import { Plus, User, CreditCard, DollarSign, Calendar, TrendingUp, Zap, Upload, Check, Clock, FileImage, X, Menu, AlertCircle } from 'lucide-react';
 import { useSupabase } from '../hooks/useSupabase';
+import useValidation from '../hooks/useValidation';
+import useNotifications from '../hooks/useNotifications';
+import { useOptimizedCalculations } from '../hooks/useOptimizedCalculations';
 import Navigation from './Navigation';
+import useMedPayStore from '../store/useMedPayStore';
+
+// Lazy loading para componentes pesados
+const ProfesionalesList = React.lazy(() => import('./Profesionales/ProfesionalesList'));
+const AddProfesionalModal = React.lazy(() => import('./Profesionales/AddProfesionalModal'));
+const ProfesionalDetail = React.lazy(() => import('./Profesionales/ProfesionalDetail'));
+const PagosList = React.lazy(() => import('./Pagos/PagosList'));
+const AddPagoModal = React.lazy(() => import('./Pagos/AddPagoModal'));
+const Dashboard = React.lazy(() => import('./Dashboard/Dashboard'));
+const Deudas = React.lazy(() => import('./Deudas/Deudas'));
+const Reportes = React.lazy(() => import('./Reportes/Reportes'));
+const RegistroPagos = React.lazy(() => import('./RegistroPagos/RegistroPagos'));
+const Profesionales = React.lazy(() => import('./Profesionales/Profesionales'));
+const TestDataControl = React.lazy(() => import('./TestDataControl'));
+const MarcarPagoModal = React.lazy(() => import('./Deudas/MarcarPagoModal'));
+const ExportModal = React.lazy(() => import('./Reportes/ExportModal'));
+const NotificationSystem = React.lazy(() => import('./NotificationSystem'));
+
+// Componente de loading optimizado
+const LoadingSpinner = ({ message = "Cargando..." }) => (
+  <div className="flex items-center justify-center p-4">
+    <div className="text-center">
+      <div className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+      <p className="text-purple-300 text-sm">{message}</p>
+    </div>
+  </div>
+);
+
+// Wrapper para componentes lazy
+const LazyComponent = ({ children, fallback = <LoadingSpinner /> }) => (
+  <Suspense fallback={fallback}>
+    {children}
+  </Suspense>
+);
 
 const ConsultorioPagosApp = () => {
+  // TODOS LOS HOOKS DEBEN IR AL INICIO
   const [activeTab, setActiveTab] = useState('profesionales');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showAddProfesional, setShowAddProfesional] = useState(false);
-  const [showNotification, setShowNotification] = useState('');
   const [showComprobanteModal, setShowComprobanteModal] = useState(false);
   const [pagoParaComprobar, setPagoParaComprobar] = useState(null);
   const [comprobantes, setComprobantes] = useState({
     profesional: '',
     clinica: ''
   });
+  const [showMarcarPagoModal, setShowMarcarPagoModal] = useState(false);
+  const [pagoParaMarcar, setPagoParaMarcar] = useState(null);
+  const [showExportModal, setShowExportModal] = useState(false);
   const [isSubmittingProfesional, setIsSubmittingProfesional] = useState(false);
-  
-  // Filtros para deudas
-  const [filtros, setFiltros] = useState({
-    profesional: '',
-    metodoPago: '',
-    fechaDesde: '',
-    fechaHasta: '',
-    mostrarFiltros: false
-  });
-
-  // Filtros para reportes
-  const [filtrosReportes, setFiltrosReportes] = useState({
-    profesional: '',
-    fechaDesde: '',
-    fechaHasta: '',
-    mostrarFiltros: false
-  });
-
-  // Estado para vista detallada de profesional
+  const [isSubmittingPago, setIsSubmittingPago] = useState(false);
+  const [showAddPago, setShowAddPago] = useState(false);
   const [profesionalDetallado, setProfesionalDetallado] = useState(null);
-
   const [newProfesional, setNewProfesional] = useState({
     nombre: '',
     especialidad: '',
     porcentaje: '',
     valorTurno: ''
   });
-
   const [erroresProfesional, setErroresProfesional] = useState({
     nombre: '',
     especialidad: '',
     porcentaje: '',
     valorTurno: ''
   });
-
   const [newPago, setNewPago] = useState({
     profesionalId: '',
     paciente: '',
@@ -59,113 +79,343 @@ const ConsultorioPagosApp = () => {
     monto: '',
     comprobante: ''
   });
+
+  // Hooks de terceros
+  const { showSuccess, showError, showWarning, showInfo, notifications, removeNotification } = useNotifications();
+  const profesionalValidation = useValidation('profesional');
+  const pagoValidation = useValidation('pago');
+  
+  // Zustand hooks
+  const profesionales = useMedPayStore(state => state.profesionales);
+  const pagos = useMedPayStore(state => state.pagos);
+  const filtros = useMedPayStore(state => state.filtros);
+  const filtrosReportes = useMedPayStore(state => state.filtrosReportes);
+  const setProfesionales = useMedPayStore(state => state.setProfesionales);
+  const setPagos = useMedPayStore(state => state.setPagos);
+  const setFiltros = useMedPayStore(state => state.setFiltros);
+  const setFiltrosReportes = useMedPayStore(state => state.setFiltrosReportes);
   
   // Hook de Supabase
   const {
-    profesionales,
-    pagos,
     loading,
     error,
     addProfesional,
+    updateProfesional,
     addPago,
     updatePago,
     markPagoAsCompleted,
     addLog,
     clearAllData,
-    refreshData
-  } = useSupabase();
-  
-  // Mostrar error si hay problema con Supabase
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-black flex items-center justify-center p-4">
-        <div className="bg-black/20 backdrop-blur-md rounded-2xl border border-red-500/20 p-8 max-w-md w-full">
-          <div className="text-center">
-            <AlertCircle className="w-16 h-16 text-red-400 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-red-400 mb-4">Error de Conexión</h2>
-            <p className="text-gray-300 mb-4">
-              No se pudo conectar con la base de datos. Verifica tu conexión a internet y las variables de entorno.
-            </p>
-            <p className="text-sm text-gray-400 mb-6">
-              Error: {error}
-            </p>
-            <button
-              onClick={() => window.location.reload()}
-              className="bg-purple-600 hover:bg-purple-700 px-6 py-3 rounded-xl font-semibold transition-all"
-            >
-              Reintentar
-            </button>
+    refreshData,
+    deleteProfesional,
+    deletePago,
+    isTestMode,
+    testDataHook
+  } = useSupabase({
+    setProfesionales,
+    setPagos
+  });
+
+  // Cálculos optimizados
+  const { estadisticas, pagosFiltrados, reportes, calcularDetallesProfesional } = useOptimizedCalculations(
+    pagos, 
+    profesionales, 
+    filtros
+  );
+
+  // Validaciones optimizadas usando el hook centralizado
+  const validarProfesionalCompleto = useCallback(() => {
+    const { isValid, errors } = profesionalValidation.validateForm(newProfesional);
+    setErroresProfesional(errors);
+    return isValid;
+  }, [newProfesional, profesionalValidation]);
+
+  // AHORA SÍ PODEMOS TENER LA LÓGICA CONDICIONAL
+  const renderContent = () => {
+    // Mostrar error si hay problema con Supabase
+    if (error) {
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-black flex items-center justify-center p-4">
+          <div className="bg-black/20 backdrop-blur-md rounded-2xl border border-red-500/20 p-8 max-w-md w-full">
+            <div className="text-center">
+              <AlertCircle className="w-16 h-16 text-red-400 mx-auto mb-4" />
+              <h2 className="text-2xl font-bold text-red-400 mb-4">Error de Conexión</h2>
+              <p className="text-gray-300 mb-4">
+                No se pudo conectar con la base de datos. Verifica tu conexión a internet y las variables de entorno.
+              </p>
+              <p className="text-sm text-gray-400 mb-6">
+                Error: {error}
+              </p>
+              <button
+                onClick={() => window.location.reload()}
+                className="bg-purple-600 hover:bg-purple-700 px-6 py-3 rounded-xl font-semibold transition-all"
+              >
+                Reintentar
+              </button>
+            </div>
           </div>
         </div>
-      </div>
-    );
-  }
-  
-  // Mostrar loading mientras carga
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-black flex items-center justify-center p-4">
-        <div className="bg-black/20 backdrop-blur-md rounded-2xl border border-purple-500/20 p-8 max-w-md w-full">
-          <div className="text-center">
-            <div className="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-            <h2 className="text-2xl font-bold text-purple-400 mb-4">Cargando...</h2>
-            <p className="text-gray-300">
-              Conectando con la base de datos
-            </p>
+      );
+    }
+    
+    // Mostrar loading solo si está cargando Y no hay datos iniciales
+    if (loading && profesionales.length === 0 && pagos.length === 0) {
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-black flex items-center justify-center p-4">
+          <div className="bg-black/20 backdrop-blur-md rounded-2xl border border-purple-500/20 p-8 max-w-md w-full">
+            <div className="text-center">
+              <div className="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+              <h2 className="text-2xl font-bold text-purple-400 mb-4">Cargando...</h2>
+              <p className="text-gray-300">
+                Conectando con la base de datos
+              </p>
+            </div>
           </div>
         </div>
+      );
+    }
+
+    // Contenido principal de la aplicación
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white">
+        {/* Header */}
+        <div className="bg-black/20 backdrop-blur-md border-b border-purple-500/20">
+          <div className="container mx-auto px-4 sm:px-6 py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-r from-purple-500 to-blue-500 rounded-xl flex items-center justify-center">
+                  <Zap className="w-4 h-4 sm:w-6 sm:h-6 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-lg sm:text-2xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
+                    MedPay AI
+                  </h1>
+                  <p className="text-purple-300 text-xs sm:text-sm">Sistema de Gestión de Pagos</p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-2 sm:space-x-4">
+                <button
+                  onClick={async () => {
+                    if (confirm('¿Estás seguro de que quieres limpiar todos los datos? Esta acción no se puede deshacer.')) {
+                      try {
+                        await clearAllData();
+                        showSuccess('Datos limpiados correctamente');
+                      } catch (error) {
+                        console.error('Error clearing data:', error);
+                        showError('Error al limpiar datos');
+                      }
+                    }
+                  }}
+                  className="bg-red-600/20 hover:bg-red-600/30 px-2 py-1 sm:px-3 rounded-lg text-xs font-medium transition-all flex items-center space-x-1 border border-red-500/30"
+                >
+                  <X className="w-3 h-3" />
+                  <span className="hidden sm:inline">Limpiar Datos</span>
+                </button>
+                <div className="text-right">
+                  <p className="text-xs sm:text-sm text-purple-300">Hoy</p>
+                  <p className="text-sm sm:text-lg font-semibold">{new Date().toLocaleDateString('es-AR')}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Navigation */}
+        <Navigation
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          mobileMenuOpen={mobileMenuOpen}
+          setMobileMenuOpen={setMobileMenuOpen}
+        />
+
+        <div className="container mx-auto px-4 sm:px-6 py-4 sm:py-8">
+          {/* Sistema de notificaciones optimizado */}
+          <LazyComponent>
+            <NotificationSystem 
+              notifications={notifications} 
+              onRemove={removeNotification} 
+            />
+          </LazyComponent>
+          
+          {/* Tab: Profesionales */}
+          {activeTab === 'profesionales' && (
+            <LazyComponent fallback={<LoadingSpinner message="Cargando profesionales..." />}>
+              <Profesionales
+                profesionales={profesionales}
+                showAddProfesional={showAddProfesional}
+                setShowAddProfesional={setShowAddProfesional}
+                newProfesional={newProfesional}
+                erroresProfesional={erroresProfesional}
+                setNewProfesional={setNewProfesional}
+                setErroresProfesional={setErroresProfesional}
+                handleAddProfesional={handleAddProfesional}
+                isSubmittingProfesional={isSubmittingProfesional}
+                profesionalDetallado={profesionalDetallado}
+                setProfesionalDetallado={setProfesionalDetallado}
+                deleteProfesional={deleteProfesional}
+                updateProfesional={updateProfesional}
+                refreshData={refreshData}
+                showSuccessNotification={showSuccess}
+                validarProfesionalCompleto={validarProfesionalCompleto}
+                calcularDetallesProfesional={calcularDetallesProfesional}
+              />
+            </LazyComponent>
+          )}
+
+          {/* Tab: Registro de Pagos */}
+          {activeTab === 'registro' && (
+            <LazyComponent fallback={<LoadingSpinner message="Cargando registro..." />}>
+              <RegistroPagos
+                newPago={newPago}
+                setNewPago={setNewPago}
+                profesionales={profesionales}
+                handleAddPago={handleAddPago}
+              />
+            </LazyComponent>
+          )}
+
+          {/* Tab: Dashboard */}
+          {activeTab === 'dashboard' && (
+            <LazyComponent fallback={<LoadingSpinner message="Cargando dashboard..." />}>
+              <Dashboard 
+                stats={estadisticas}
+                pagos={pagos}
+                getEstadoColor={getEstadoColor}
+              />
+            </LazyComponent>
+          )}
+
+          {/* Tab: Estado de Deudas */}
+          {activeTab === 'deudas' && (
+            <LazyComponent fallback={<LoadingSpinner message="Cargando deudas..." />}>
+              <Deudas
+                filtros={filtros}
+                setFiltros={setFiltros}
+                profesionales={profesionales}
+                pagos={pagos}
+                stats={estadisticas}
+                aplicarFiltros={aplicarFiltros}
+                getEstadoColor={getEstadoColor}
+                getEstadoTexto={getEstadoTexto}
+                marcarPagoIndividual={marcarPagoIndividual}
+                marcarEfectivoPagado={marcarEfectivoPagado}
+                marcarTransferenciasCobradas={marcarTransferenciasCobradas}
+              />
+            </LazyComponent>
+          )}
+          
+          {/* Tab: Reportes */}
+          {activeTab === 'reportes' && (
+            <LazyComponent fallback={<LoadingSpinner message="Cargando reportes..." />}>
+              <Reportes
+                filtrosReportes={filtrosReportes}
+                setFiltrosReportes={setFiltrosReportes}
+                profesionales={profesionales}
+                calcularReportes={calcularReportes}
+                exportarReporteCSV={exportarReporteCSV}
+                profesionalDetallado={profesionalDetallado}
+                setProfesionalDetallado={setProfesionalDetallado}
+                calcularDetallesProfesional={calcularDetallesProfesional}
+                getEstadoColor={getEstadoColor}
+                onShowExportModal={() => setShowExportModal(true)}
+              />
+            </LazyComponent>
+          )}
+
+          {/* Tab: Pagos */}
+          {activeTab === 'pagos' && (
+            <div className="space-y-8">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">
+                <h2 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
+                  Gestión de Pagos
+                </h2>
+                <button
+                  onClick={() => setShowAddPago(true)}
+                  className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-semibold transition-all transform hover:scale-[1.02] flex items-center space-x-2 text-sm sm:text-base"
+                >
+                  <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <span>Registrar Pago</span>
+                </button>
+              </div>
+              <LazyComponent fallback={<LoadingSpinner message="Cargando pagos..." />}>
+                <PagosList
+                  pagos={pagos}
+                  profesionales={profesionales}
+                  onSelect={(pago) => {
+                    console.log('Pago seleccionado:', pago);
+                  }}
+                  onDelete={async id => {
+                    if (window.confirm('¿Seguro que deseas eliminar este pago?')) {
+                      await deletePago(id);
+                      await refreshData();
+                      showSuccess('Pago eliminado');
+                    }
+                  }}
+                />
+              </LazyComponent>
+              {showAddPago && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+                  <LazyComponent fallback={<LoadingSpinner message="Cargando modal..." />}>
+                    <AddPagoModal
+                      values={newPago}
+                      errores={{
+                        profesionalId: !newPago.profesionalId ? 'El profesional es obligatorio' : '',
+                        paciente: !newPago.paciente ? 'El paciente es obligatorio' : '',
+                        monto: !newPago.monto ? 'El monto es obligatorio' : ''
+                      }}
+                      profesionales={profesionales}
+                      onChange={(field, value) => setNewPago({ ...newPago, [field]: value })}
+                      onSubmit={handleAddPago}
+                      onCancel={() => setShowAddPago(false)}
+                      loading={isSubmittingPago}
+                    />
+                  </LazyComponent>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Modales */}
+        <LazyComponent>
+          <MarcarPagoModal
+            pago={pagoParaMarcar}
+            isOpen={showMarcarPagoModal}
+            onConfirm={handleMarcarPago}
+            onCancel={() => {
+              setShowMarcarPagoModal(false);
+              setPagoParaMarcar(null);
+            }}
+          />
+        </LazyComponent>
+
+        <LazyComponent>
+          <ExportModal
+            isOpen={showExportModal}
+            onClose={() => setShowExportModal(false)}
+            onExport={handleExportReporte}
+            reportesData={calcularReportes()}
+          />
+        </LazyComponent>
+
+        <LazyComponent>
+          <TestDataControl
+            isTestMode={isTestMode}
+            toggleTestMode={testDataHook?.toggleTestMode}
+            clearTestData={testDataHook?.clearTestData}
+            generateAdditionalTestData={testDataHook?.generateAdditionalTestData}
+            testDataCount={{
+              profesionales: profesionales.length,
+              pagos: pagos.length,
+              logs: testDataHook?.logs?.length || 0
+            }}
+          />
+        </LazyComponent>
       </div>
     );
-  }
-
-  // Validaciones mejoradas (del .txt fusionado)
-  const validarNombre = (nombre) => {
-    const regex = /^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/;
-    if (!nombre.trim()) return 'El nombre es obligatorio';
-    if (nombre.trim().length < 2) return 'El nombre debe tener al menos 2 caracteres';
-    if (!regex.test(nombre)) return 'El nombre solo puede contener letras y espacios';
-    return '';
   };
 
-  const validarEspecialidad = (especialidad) => {
-    const regex = /^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/;
-    if (!especialidad.trim()) return 'La especialidad es obligatoria';
-    if (especialidad.trim().length < 2) return 'La especialidad debe tener al menos 2 caracteres';
-    if (!regex.test(especialidad)) return 'La especialidad solo puede contener letras y espacios';
-    return '';
-  };
-
-  const validarPorcentaje = (porcentaje) => {
-    const num = parseFloat(porcentaje);
-    if (!porcentaje) return 'El porcentaje es obligatorio';
-    if (isNaN(num) || num <= 0 || num > 100) return 'El porcentaje debe ser un número entre 1 y 100';
-    return '';
-  };
-
-  const validarValorTurno = (valorTurno) => {
-    const num = parseFloat(valorTurno);
-    if (!valorTurno) return 'El valor del turno es obligatorio';
-    if (isNaN(num) || num <= 0) return 'El valor del turno debe ser un número mayor a 0';
-    return '';
-  };
-
-  const validarProfesionalCompleto = () => {
-    const errores = {
-      nombre: validarNombre(newProfesional.nombre),
-      especialidad: validarEspecialidad(newProfesional.especialidad),
-      porcentaje: validarPorcentaje(newProfesional.porcentaje),
-      valorTurno: validarValorTurno(newProfesional.valorTurno)
-    };
-    setErroresProfesional(errores);
-    return !Object.values(errores).some(error => error !== '');
-  };
-
-  // Mostrar notificación
-  const showSuccessNotification = (message) => {
-    setShowNotification(message);
-    setTimeout(() => setShowNotification(''), 3000);
-  };
-
+  // Funciones que necesitan estar definidas antes del render
   const handleAddProfesional = async () => {
     if (validarProfesionalCompleto()) {
       setIsSubmittingProfesional(true);
@@ -180,16 +430,15 @@ const ConsultorioPagosApp = () => {
         await addProfesional(profesionalData);
         await refreshData();
         
-        // Limpiar formulario y cerrar modal
         setNewProfesional({ nombre: '', especialidad: '', porcentaje: '', valorTurno: '' });
         setErroresProfesional({ nombre: '', especialidad: '', porcentaje: '', valorTurno: '' });
         setShowAddProfesional(false);
         setActiveTab('profesionales');
         
-        showSuccessNotification('Profesional agregado con éxito');
+        showSuccess('Profesional agregado con éxito');
       } catch (error) {
         console.error('Error adding profesional:', error);
-        showSuccessNotification('Error al agregar profesional: ' + (error.message || 'Error desconocido'));
+        showError('Error al agregar profesional: ' + (error.message || 'Error desconocido'));
       } finally {
         setIsSubmittingProfesional(false);
       }
@@ -219,8 +468,8 @@ const ConsultorioPagosApp = () => {
         };
         
         await addPago(pagoData);
+        await refreshData();
         
-        // Limpiar formulario
         setNewPago({
           profesionalId: '',
           paciente: '',
@@ -231,54 +480,61 @@ const ConsultorioPagosApp = () => {
           comprobante: ''
         });
         
-        showSuccessNotification('Pago registrado con éxito');
+        setShowAddPago(false);
+        showSuccess('Pago registrado con éxito');
       } catch (error) {
         console.error('Error adding pago:', error);
-        showSuccessNotification('Error al registrar pago: ' + (error.message || 'Error desconocido'));
+        showError('Error al registrar pago: ' + (error.message || 'Error desconocido'));
       }
     } else {
-      showSuccessNotification('Por favor completa todos los campos obligatorios');
+      showWarning('Por favor completa todos los campos obligatorios');
     }
   };
 
-  // Marcar pago individual como pagado
   const marcarPagoIndividual = (pagoId, tipo) => {
-    if (tipo === 'transferencia') {
-      // Mostrar modal para pedir comprobantes
-      setPagoParaComprobar({ id: pagoId, tipo });
-      setComprobantes({ profesional: '', clinica: '' });
-      setShowComprobanteModal(true);
-    } else {
-      // Para efectivo, marcar directamente
-      completarMarcadoPago(pagoId, tipo, null, null);
-    }
+    const pago = pagos.find(p => p.id === pagoId);
+    if (!pago) return;
+    setPagoParaMarcar(pago);
+    setShowMarcarPagoModal(true);
   };
 
-  // Función para completar el marcado de pago con los comprobantes
-  const completarMarcadoPago = async (pagoId, tipo, comprobanteProfesional, comprobanteClinica) => {
+  const handleMarcarPago = async (datosPago) => {
     try {
-      const nuevoEstado = tipo === 'efectivo' ? 'pagado' : 'completada';
+      const { pagoId, montoAbonado, tipoPago, comprobante } = datosPago;
+      const pago = pagos.find(p => p.id === pagoId);
       
-      await markPagoAsCompleted(pagoId, nuevoEstado, comprobanteProfesional, comprobanteClinica);
-      
-      showSuccessNotification('Pago marcado como completado');
-    } catch (error) {
-      console.error('Error marking pago as completed:', error);
-      showSuccessNotification('Error al marcar pago como completado');
-    }
-  };
+      if (!pago) {
+        showError('Pago no encontrado');
+        return;
+      }
 
-  // Función para confirmar comprobantes desde el modal
-  const confirmarComprobantes = () => {
-    completarMarcadoPago(
-      pagoParaComprobar.id, 
-      pagoParaComprobar.tipo, 
-      comprobantes.profesional || null, 
-      comprobantes.clinica || null
-    );
-    setShowComprobanteModal(false);
-    setPagoParaComprobar(null);
-    setComprobantes({ profesional: '', clinica: '' });
+      const montoTotal = pago.metodoPago === 'efectivo' ? pago.gananciaProfesional : pago.gananciaClinica;
+      
+      if (montoAbonado >= montoTotal) {
+        const nuevoEstado = pago.metodoPago === 'efectivo' ? 'pagado' : 'completada';
+        await markPagoAsCompleted(pagoId, nuevoEstado, comprobante, null);
+        showSuccess('Pago marcado como completado');
+      } else {
+        const pagoParcial = {
+          ...pago,
+          monto: montoAbonado,
+          gananciaProfesional: pago.metodoPago === 'efectivo' ? montoAbonado : pago.gananciaProfesional,
+          gananciaClinica: pago.metodoPago === 'transferencia' ? montoAbonado : pago.gananciaClinica,
+          comprobante: comprobante,
+          esPagoParcial: true,
+          pagoOriginalId: pagoId
+        };
+        
+        await addPago(pagoParcial);
+        showSuccess('Pago parcial registrado');
+      }
+      
+      setShowMarcarPagoModal(false);
+      setPagoParaMarcar(null);
+    } catch (error) {
+      console.error('Error al marcar pago:', error);
+      showError('Error al procesar el pago');
+    }
   };
 
   const marcarEfectivoPagado = (profesionalId) => {
@@ -296,7 +552,6 @@ const ConsultorioPagosApp = () => {
         : pago
     ));
     
-    // Agregar log
     addLog('pagos_masivos', `Marcados ${pagosAfectados.length} pagos en efectivo como pagados para profesional`, {
       profesionalId,
       cantidadPagos: pagosAfectados.length,
@@ -311,7 +566,6 @@ const ConsultorioPagosApp = () => {
       p.estado === 'recibida'
     );
     
-    // Verificar si alguno no tiene comprobante del profesional
     const sinComprobante = pagosAfectados.some(p => !p.comprobante);
     let comprobanteProfesional = null;
     
@@ -335,7 +589,6 @@ const ConsultorioPagosApp = () => {
         : pago
     ));
     
-    // Agregar log
     addLog('comisiones_cobradas', `Marcadas ${pagosAfectados.length} comisiones de transferencia como cobradas para profesional`, {
       profesionalId,
       cantidadPagos: pagosAfectados.length,
@@ -344,10 +597,9 @@ const ConsultorioPagosApp = () => {
       tieneComprobanteClinica: !!comprobanteClinica
     });
     
-    showSuccessNotification('Comisiones marcadas como cobradas');
+    showSuccess('Comisiones marcadas como cobradas');
   };
 
-  // Función para aplicar filtros a los pagos
   const aplicarFiltros = (pagosList) => {
     return pagosList.filter(pago => {
       let cumpleFiltros = true;
@@ -372,7 +624,6 @@ const ConsultorioPagosApp = () => {
     });
   };
 
-  // Función para aplicar filtros de reportes
   const aplicarFiltrosReportes = (pagosList) => {
     return pagosList.filter(pago => {
       let cumpleFiltros = true;
@@ -393,22 +644,16 @@ const ConsultorioPagosApp = () => {
     });
   };
 
-  // Función para calcular estadísticas de reportes
   const calcularReportes = () => {
     const pagosFiltrados = aplicarFiltrosReportes(pagos);
     
-    // Estadísticas generales
     const totalEfectivo = pagosFiltrados.filter(p => p.metodoPago === 'efectivo').reduce((sum, p) => sum + p.monto, 0);
     const totalTransferencias = pagosFiltrados.filter(p => p.metodoPago === 'transferencia').reduce((sum, p) => sum + p.monto, 0);
     const totalGeneral = totalEfectivo + totalTransferencias;
     
-    // Ganancias de profesionales
     const totalGananciasProfesionales = pagosFiltrados.reduce((sum, p) => sum + p.gananciaProfesional, 0);
-    
-    // Ganancias de la clínica
     const totalGananciasClinica = pagosFiltrados.reduce((sum, p) => sum + p.gananciaClinica, 0);
     
-    // Estadísticas por profesional
     const reportePorProfesional = profesionales.map(prof => {
       const pagosProf = pagosFiltrados.filter(p => p.profesionalId === prof.id);
       const efectivos = pagosProf.filter(p => p.metodoPago === 'efectivo');
@@ -445,176 +690,113 @@ const ConsultorioPagosApp = () => {
     };
   };
 
-  // Función para calcular estadísticas detalladas de un profesional
-  const calcularDetallesProfesional = (profesionalId) => {
-    const profesional = profesionales.find(p => p.id === profesionalId);
-    if (!profesional) return null;
-
-    const pagosProfesional = aplicarFiltrosReportes(pagos).filter(p => p.profesionalId === profesionalId);
-    
-    // Agrupar por estado
-    const pagosCompletados = pagosProfesional.filter(p => p.estado === 'pagado' || p.estado === 'completada');
-    const pagosPendientes = pagosProfesional.filter(p => p.estado === 'pendiente' || p.estado === 'recibida');
-    
-    // Estadísticas por método
-    const efectivos = pagosProfesional.filter(p => p.metodoPago === 'efectivo');
-    const transferencias = pagosProfesional.filter(p => p.metodoPago === 'transferencia');
-    
-    // Estadísticas temporales
-    const fechas = [...new Set(pagosProfesional.map(p => p.fecha))].sort();
-    const primerPago = fechas[0];
-    const ultimoPago = fechas[fechas.length - 1];
-    
-    // Calcular días activos
-    const diasActivos = fechas.length;
-    const diasTranscurridos = primerPago && ultimoPago ? 
-      Math.ceil((new Date(ultimoPago) - new Date(primerPago)) / (1000 * 60 * 60 * 24)) + 1 : 1;
-    
-    // Estadísticas de pagos
-    const totalFacturado = pagosProfesional.reduce((sum, p) => sum + p.monto, 0);
-    const totalGanado = pagosProfesional.reduce((sum, p) => sum + p.gananciaProfesional, 0);
-    const totalComisiones = pagosProfesional.reduce((sum, p) => sum + p.gananciaClinica, 0);
-    
-    // Pendientes
-    const efectivosPendientes = pagosPendientes.filter(p => p.metodoPago === 'efectivo');
-    const transferenciasPendientes = pagosPendientes.filter(p => p.metodoPago === 'transferencia');
-    
-    return {
-      profesional,
-      pagosProfesional,
-      estadisticas: {
-        totalConsultas: pagosProfesional.length,
-        totalFacturado,
-        totalGanado,
-        totalComisiones,
-        promedioPorConsulta: pagosProfesional.length > 0 ? totalFacturado / pagosProfesional.length : 0,
-        diasActivos,
-        diasTranscurridos,
-        consultasPorDia: diasTranscurridos > 0 ? pagosProfesional.length / diasTranscurridos : 0,
-        metodosPreferidos: {
-          efectivo: {
-            cantidad: efectivos.length,
-            monto: efectivos.reduce((sum, p) => sum + p.monto, 0),
-            porcentaje: pagosProfesional.length > 0 ? (efectivos.length / pagosProfesional.length) * 100 : 0
-          },
-          transferencia: {
-            cantidad: transferencias.length,
-            monto: transferencias.reduce((sum, p) => sum + p.monto, 0),
-            porcentaje: pagosProfesional.length > 0 ? (transferencias.length / pagosProfesional.length) * 100 : 0
-          }
-        }
-      },
-      pendientes: {
-        efectivos: efectivosPendientes.reduce((sum, p) => sum + p.gananciaProfesional, 0),
-        transferencias: transferenciasPendientes.reduce((sum, p) => sum + p.gananciaClinica, 0),
-        cantidadEfectivos: efectivosPendientes.length,
-        cantidadTransferencias: transferenciasPendientes.length
-      },
-      actividad: {
-        primerPago,
-        ultimoPago,
-        pagosCompletados: pagosCompletados.length,
-        pagosPendientes: pagosPendientes.length
-      }
-    };
+  const calcularDetallesProfesionalOptimizado = (profesionalId) => {
+    return calcularDetallesProfesional(profesionalId);
   };
-  const exportarReporteCSV = () => {
+
+  const handleExportReporte = (opciones) => {
+    exportarReporteCSV(opciones);
+    setShowExportModal(false);
+  };
+
+  const exportarReporteCSV = (opciones = {}) => {
     const reportes = calcularReportes();
+    const {
+      formato = 'csv',
+      secciones = { resumen: true, profesionales: true, pagos: true, estadisticas: true },
+      filtros = { incluirComprobantes: true, incluirGanancias: true, incluirEstados: true, soloCompletados: false }
+    } = opciones;
     
-    // Crear contenido CSV
     let csvContent = "data:text/csv;charset=utf-8,";
     
-    // Header del resumen general
-    csvContent += "RESUMEN GENERAL\n";
-    csvContent += "Concepto,Monto,Cantidad\n";
-    csvContent += `Total Facturado,${(reportes.totalGeneral || 0).toLocaleString()},${reportes.cantidadConsultas} consultas\n`;
-    csvContent += `Ganancias Profesionales,${(reportes.totalGananciasProfesionales || 0).toLocaleString()},-\n`;
-    csvContent += `Ganancias Clínica,${(reportes.totalGananciasClinica || 0).toLocaleString()},-\n`;
-    csvContent += `Efectivo,${(reportes.totalEfectivo || 0).toLocaleString()},-\n`;
-    csvContent += `Transferencias,${(reportes.totalTransferencias || 0).toLocaleString()},-\n`;
-    csvContent += "\n";
+    if (secciones.resumen) {
+      csvContent += "RESUMEN GENERAL\n";
+      csvContent += "Concepto,Monto,Cantidad\n";
+      csvContent += `Total Facturado,${(reportes.totalGeneral || 0).toLocaleString()},${reportes.cantidadConsultas} consultas\n`;
+      csvContent += `Ganancias Profesionales,${(reportes.totalGananciasProfesionales || 0).toLocaleString()},-\n`;
+      csvContent += `Ganancias Clínica,${(reportes.totalGananciasClinica || 0).toLocaleString()},-\n`;
+      csvContent += `Efectivo,${(reportes.totalEfectivo || 0).toLocaleString()},-\n`;
+      csvContent += `Transferencias,${(reportes.totalTransferencias || 0).toLocaleString()},-\n`;
+      csvContent += "\n";
+    }
     
-    // Header del reporte por profesional
-    csvContent += "REPORTE POR PROFESIONAL\n";
-    csvContent += "Nombre,Especialidad,Consultas,Total Facturado,Ganancia Profesional,Ganancia Clínica,Efectivos Cant,Efectivos Monto,Transferencias Cant,Transferencias Monto\n";
+    if (secciones.profesionales) {
+      csvContent += "REPORTE POR PROFESIONAL\n";
+      let header = "Nombre,Especialidad,Consultas,Total Facturado";
+      if (filtros.incluirGanancias) header += ",Ganancia Profesional,Ganancia Clínica";
+      header += ",Efectivos Cant,Efectivos Monto,Transferencias Cant,Transferencias Monto\n";
+      csvContent += header;
+      
+      reportes.reportePorProfesional.forEach(prof => {
+        let row = `"${prof.nombre}","${prof.especialidad}",${prof.cantidadConsultas},${prof.totalFacturado}`;
+        if (filtros.incluirGanancias) row += `,${prof.gananciaProfesional},${prof.gananciaClinica}`;
+        row += `,${prof.efectivos.cantidad},${prof.efectivos.monto},${prof.transferencias.cantidad},${prof.transferencias.monto}\n`;
+        csvContent += row;
+      });
+      csvContent += "\n";
+    }
     
-    // Datos por profesional
-    reportes.reportePorProfesional.forEach(prof => {
-      csvContent += `"${prof.nombre}","${prof.especialidad}",${prof.cantidadConsultas},${prof.totalFacturado},${prof.gananciaProfesional},${prof.gananciaClinica},${prof.efectivos.cantidad},${prof.efectivos.monto},${prof.transferencias.cantidad},${prof.transferencias.monto}\n`;
-    });
+    if (secciones.pagos) {
+      csvContent += "DETALLE DE PAGOS\n";
+      let header = "Fecha,Hora,Profesional,Paciente,Método Pago,Monto";
+      if (filtros.incluirGanancias) header += ",Ganancia Profesional,Ganancia Clínica";
+      if (filtros.incluirEstados) header += ",Estado";
+      if (filtros.incluirComprobantes) header += ",Comprobante";
+      header += "\n";
+      csvContent += header;
+      
+      let pagosFiltrados = reportes.pagosFiltrados;
+      if (filtros.soloCompletados) {
+        pagosFiltrados = pagosFiltrados.filter(p => p.estado === 'pagado' || p.estado === 'completada');
+      }
+      
+      pagosFiltrados.forEach(pago => {
+        let row = `${pago.fecha},${pago.hora},"${pago.profesionalNombre}","${pago.paciente}",${pago.metodoPago},${pago.monto}`;
+        if (filtros.incluirGanancias) row += `,${pago.gananciaProfesional},${pago.gananciaClinica}`;
+        if (filtros.incluirEstados) row += `,${pago.estado}`;
+        if (filtros.incluirComprobantes) row += `,"${pago.comprobante || ''}"`;
+        row += "\n";
+        csvContent += row;
+      });
+      csvContent += "\n";
+    }
     
-    csvContent += "\n";
+    if (secciones.estadisticas) {
+      csvContent += "ESTADÍSTICAS AVANZADAS\n";
+      csvContent += "Métrica,Valor\n";
+      csvContent += `Promedio por Consulta,${reportes.cantidadConsultas > 0 ? Math.round(reportes.totalGeneral / reportes.cantidadConsultas) : 0}\n`;
+      csvContent += `Porcentaje Efectivo,${Math.round((reportes.totalEfectivo / reportes.totalGeneral) * 100) || 0}%\n`;
+      csvContent += `Porcentaje Transferencias,${Math.round((reportes.totalTransferencias / reportes.totalGeneral) * 100) || 0}%\n`;
+      csvContent += `Ratio Ganancia Clínica,${Math.round((reportes.totalGananciasClinica / reportes.totalGeneral) * 100) || 0}%\n`;
+      csvContent += "\n";
+    }
     
-    // Header del detalle de pagos
-    csvContent += "DETALLE DE PAGOS\n";
-    csvContent += "Fecha,Hora,Profesional,Paciente,Método Pago,Monto,Ganancia Profesional,Ganancia Clínica,Estado\n";
-    
-    // Datos de pagos individuales
-    reportes.pagosFiltrados.forEach(pago => {
-      csvContent += `${pago.fecha},${pago.hora},"${pago.profesionalNombre}","${pago.paciente}",${pago.metodoPago},${pago.monto},${pago.gananciaProfesional},${pago.gananciaClinica},${pago.estado}\n`;
-    });
-    
-    // Crear y descargar archivo
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
     
-    // Generar nombre del archivo con fecha actual
     const fechaActual = new Date().toISOString().split('T')[0];
     const filtroTexto = filtrosReportes.profesional ? 
       `_${profesionales.find(p => p.id === parseInt(filtrosReportes.profesional))?.nombre.replace(/\s+/g, '_')}` : '';
     const rangoFecha = filtrosReportes.fechaDesde && filtrosReportes.fechaHasta ? 
       `_${filtrosReportes.fechaDesde}_a_${filtrosReportes.fechaHasta}` : '';
     
-    link.setAttribute("download", `reporte_medpay_${fechaActual}${filtroTexto}${rangoFecha}.csv`);
+    const extension = formato === 'xlsx' ? 'xlsx' : 'csv';
+    link.setAttribute("download", `reporte_medpay_${fechaActual}${filtroTexto}${rangoFecha}.${extension}`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     
-    // Log de la exportación
-    addLog('reporte_exportado', 'Reporte exportado a CSV', {
+    addLog('reporte_exportado', `Reporte exportado a ${formato.toUpperCase()}`, {
       totalRegistros: reportes.pagosFiltrados.length,
       profesionales: reportes.reportePorProfesional.length,
       montoTotal: reportes.totalGeneral,
-      filtros: filtrosReportes
+      filtros: filtrosReportes,
+      opciones: opciones
     });
     
-    showSuccessNotification('Reporte exportado con éxito');
+    showSuccess(`Reporte exportado con éxito (${formato.toUpperCase()})`);
   };
-
-  const calcularEstadisticas = () => {
-    const hoy = new Date().toISOString().split('T')[0];
-    const pagosHoy = pagos.filter(p => p.fecha === hoy);
-    
-    // Aplicar filtros a todos los pagos para el cálculo de deudas
-    const pagosFiltrados = aplicarFiltros(pagos);
-    
-    const efectivoPendiente = pagosFiltrados.filter(p => p.metodoPago === 'efectivo' && p.estado === 'pendiente');
-    const transferenciasPendientes = pagosFiltrados.filter(p => p.metodoPago === 'transferencia' && p.estado === 'recibida');
-    
-    return {
-      totalEfectivoHoy: pagosHoy.filter(p => p.metodoPago === 'efectivo').reduce((sum, p) => sum + p.monto, 0),
-      totalTransferenciaHoy: pagosHoy.filter(p => p.metodoPago === 'transferencia').reduce((sum, p) => sum + p.monto, 0),
-      pagosHoy: pagosHoy.length,
-      totalEfectivoPendiente: efectivoPendiente.reduce((sum, p) => sum + p.gananciaProfesional, 0),
-      totalComisionesPendientes: transferenciasPendientes.reduce((sum, p) => sum + p.gananciaClinica, 0),
-      deudaPorProfesional: profesionales.map(prof => {
-        const efectivosPendientes = efectivoPendiente.filter(p => p.profesionalId === prof.id);
-        const transferenciasRecibidas = transferenciasPendientes.filter(p => p.profesionalId === prof.id);
-        
-        return {
-          id: prof.id,
-          nombre: prof.nombre,
-          efectivoPendiente: efectivosPendientes.reduce((sum, p) => sum + p.gananciaProfesional, 0),
-          comisionPendiente: transferenciasRecibidas.reduce((sum, p) => sum + p.gananciaClinica, 0),
-          cantidadEfectivos: efectivosPendientes.length,
-          cantidadTransferencias: transferenciasRecibidas.length
-        };
-      }).filter(d => d.efectivoPendiente > 0 || d.comisionPendiente > 0)
-    };
-  };
-
-  const stats = calcularEstadisticas();
 
   const getEstadoColor = (pago) => {
     if (pago.metodoPago === 'efectivo') {
@@ -632,1183 +814,8 @@ const ConsultorioPagosApp = () => {
     }
   };
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white">
-      {/* Header */}
-      <div className="bg-black/20 backdrop-blur-md border-b border-purple-500/20">
-        <div className="container mx-auto px-4 sm:px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-r from-purple-500 to-blue-500 rounded-xl flex items-center justify-center">
-                <Zap className="w-4 h-4 sm:w-6 sm:h-6 text-white" />
-              </div>
-              <div>
-                <h1 className="text-lg sm:text-2xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
-                  MedPay AI
-                </h1>
-                <p className="text-purple-300 text-xs sm:text-sm">Sistema de Gestión de Pagos</p>
-              </div>
-            </div>
-            <div className="flex items-center space-x-2 sm:space-x-4">
-              <button
-                onClick={async () => {
-                  if (confirm('¿Estás seguro de que quieres limpiar todos los datos? Esta acción no se puede deshacer.')) {
-                    try {
-                      await clearAllData();
-                      showSuccessNotification('Datos limpiados correctamente');
-                    } catch (error) {
-                      console.error('Error clearing data:', error);
-                      showSuccessNotification('Error al limpiar datos');
-                    }
-                  }
-                }}
-                className="bg-red-600/20 hover:bg-red-600/30 px-2 py-1 sm:px-3 rounded-lg text-xs font-medium transition-all flex items-center space-x-1 border border-red-500/30"
-              >
-                <X className="w-3 h-3" />
-                <span className="hidden sm:inline">Limpiar Datos</span>
-              </button>
-              <div className="text-right">
-                <p className="text-xs sm:text-sm text-purple-300">Hoy</p>
-                <p className="text-sm sm:text-lg font-semibold">{new Date().toLocaleDateString('es-AR')}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Navigation */}
-      <Navigation
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        mobileMenuOpen={mobileMenuOpen}
-        setMobileMenuOpen={setMobileMenuOpen}
-      />
-
-      <div className="container mx-auto px-4 sm:px-6 py-4 sm:py-8">
-        {/* Loading indicator */}
-        {loading && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-            <div className="bg-gradient-to-br from-slate-900 to-purple-900 rounded-2xl border border-purple-500/30 p-8 flex items-center space-x-4">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-400"></div>
-              <span className="text-white text-lg">Cargando datos...</span>
-            </div>
-          </div>
-        )}
-
-        {/* Error notification */}
-        {error && (
-          <div className="fixed top-4 right-2 sm:right-4 bg-red-500 text-white px-4 sm:px-6 py-3 rounded-xl shadow-lg z-50 animate-bounce max-w-sm sm:max-w-md">
-            <div className="flex items-center space-x-2">
-              <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5" />
-              <span className="text-sm sm:text-base">Error: {error}</span>
-            </div>
-          </div>
-        )}
-
-        {/* Notificación de éxito */}
-        {showNotification && (
-          <div className="fixed top-4 right-2 sm:right-4 bg-green-500 text-white px-4 sm:px-6 py-3 rounded-xl shadow-lg z-50 animate-bounce max-w-sm sm:max-w-md">
-            <div className="flex items-center space-x-2">
-              <Check className="w-4 h-4 sm:w-5 sm:h-5" />
-              <span className="text-sm sm:text-base">{showNotification}</span>
-            </div>
-          </div>
-        )}
-        {/* Tab: Profesionales */}
-        {activeTab === 'profesionales' && (
-          <div className="space-y-8">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">
-              <h2 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
-                Gestión de Profesionales
-              </h2>
-              <button
-                onClick={() => setShowAddProfesional(true)}
-                className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-semibold transition-all transform hover:scale-[1.02] flex items-center space-x-2 text-sm sm:text-base"
-              >
-                <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
-                <span>Agregar Profesional</span>
-              </button>
-            </div>
-
-            {showAddProfesional && (
-              <div className="bg-black/20 backdrop-blur-md rounded-2xl border border-purple-500/20 p-4 sm:p-6 lg:p-8">
-                <h3 className="text-lg sm:text-xl font-semibold mb-4 sm:mb-6 text-purple-300">Nuevo Profesional</h3>
-                <div className="space-y-4 sm:space-y-6">
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-                    <div>
-                      <label className="block text-sm font-medium text-purple-300 mb-2">
-                        Nombre Completo
-                      </label>
-                      <input
-                        type="text"
-                        value={newProfesional.nombre}
-                        onChange={(e) => {
-                          setNewProfesional({...newProfesional, nombre: e.target.value});
-                          setErroresProfesional({...erroresProfesional, nombre: validarNombre(e.target.value)});
-                        }}
-                        className={`w-full px-3 sm:px-4 py-2 sm:py-3 bg-black/30 border rounded-xl focus:outline-none transition-colors text-white text-sm sm:text-base ${
-                          erroresProfesional.nombre ? 'border-red-500 focus:border-red-400' : 'border-purple-500/30 focus:border-purple-400'
-                        }`}
-                        placeholder="Dr. Juan Pérez"
-                      />
-                      {erroresProfesional.nombre && (
-                        <p className="text-red-400 text-xs mt-1">{erroresProfesional.nombre}</p>
-                      )}
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-purple-300 mb-2">
-                        Especialidad
-                      </label>
-                      <input
-                        type="text"
-                        value={newProfesional.especialidad}
-                        onChange={(e) => {
-                          setNewProfesional({...newProfesional, especialidad: e.target.value});
-                          setErroresProfesional({...erroresProfesional, especialidad: validarEspecialidad(e.target.value)});
-                        }}
-                        className={`w-full px-3 sm:px-4 py-2 sm:py-3 bg-black/30 border rounded-xl focus:outline-none transition-colors text-white text-sm sm:text-base ${
-                          erroresProfesional.especialidad ? 'border-red-500 focus:border-red-400' : 'border-purple-500/30 focus:border-purple-400'
-                        }`}
-                        placeholder="Cardiología"
-                      />
-                      {erroresProfesional.especialidad && (
-                        <p className="text-red-400 text-xs mt-1">{erroresProfesional.especialidad}</p>
-                      )}
-                    </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-                    <div>
-                      <label className="block text-sm font-medium text-purple-300 mb-2">
-                        Porcentaje del Profesional (%)
-                      </label>
-                      <input
-                        type="number"
-                        value={newProfesional.porcentaje}
-                        onChange={(e) => {
-                          setNewProfesional({...newProfesional, porcentaje: e.target.value});
-                          setErroresProfesional({...erroresProfesional, porcentaje: validarPorcentaje(e.target.value)});
-                        }}
-                        className={`w-full px-4 py-3 bg-black/30 border rounded-xl focus:outline-none transition-colors text-white ${
-                          erroresProfesional.porcentaje ? 'border-red-500 focus:border-red-400' : 'border-purple-500/30 focus:border-purple-400'
-                        }`}
-                        placeholder="70"
-                        min="1"
-                        max="100"
-                      />
-                      {erroresProfesional.porcentaje && (
-                        <p className="text-red-400 text-xs mt-1">{erroresProfesional.porcentaje}</p>
-                      )}
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-purple-300 mb-2">
-                        Valor del Turno ($)
-                      </label>
-                      <input
-                        type="number"
-                        value={newProfesional.valorTurno}
-                        onChange={(e) => {
-                          setNewProfesional({...newProfesional, valorTurno: e.target.value});
-                          setErroresProfesional({...erroresProfesional, valorTurno: validarValorTurno(e.target.value)});
-                        }}
-                        className={`w-full px-4 py-3 bg-black/30 border rounded-xl focus:outline-none transition-colors text-white ${
-                          erroresProfesional.valorTurno ? 'border-red-500 focus:border-red-400' : 'border-purple-500/30 focus:border-purple-400'
-                        }`}
-                        placeholder="15000"
-                        min="1"
-                      />
-                      {erroresProfesional.valorTurno && (
-                        <p className="text-red-400 text-xs mt-1">{erroresProfesional.valorTurno}</p>
-                      )}
-                    </div>
-                  </div>
-                  
-                  <div className="flex space-x-4">
-                    <button
-                      onClick={handleAddProfesional}
-                      disabled={isSubmittingProfesional}
-                      className={`px-8 py-3 rounded-xl font-semibold transition-all ${
-                        isSubmittingProfesional 
-                          ? 'bg-gray-500 cursor-not-allowed' 
-                          : 'bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600'
-                      }`}
-                    >
-                      {isSubmittingProfesional ? (
-                        <div className="flex items-center space-x-2">
-                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                          <span>Guardando...</span>
-                        </div>
-                      ) : (
-                        'Agregar Profesional'
-                      )}
-                    </button>
-                    <button
-                      onClick={() => setShowAddProfesional(false)}
-                      disabled={isSubmittingProfesional}
-                      className={`px-8 py-3 rounded-xl font-semibold transition-all ${
-                        isSubmittingProfesional 
-                          ? 'bg-gray-500 cursor-not-allowed' 
-                          : 'bg-gray-600 hover:bg-gray-700'
-                      }`}
-                    >
-                      Cancelar
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-              {profesionales.map(profesional => (
-                <div key={profesional.id} className="bg-black/20 backdrop-blur-md rounded-2xl border border-purple-500/20 p-4 sm:p-6">
-                  <div className="flex items-center space-x-3 mb-4">
-                    <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full flex items-center justify-center">
-                      <User className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-base sm:text-lg">{profesional.nombre}</h3>
-                      <p className="text-purple-300 text-xs sm:text-sm">{profesional.especialidad}</p>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-gray-300 text-sm">Porcentaje:</span>
-                      <span className="text-purple-400 font-semibold text-sm">{profesional.porcentaje}%</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-300 text-sm">Valor turno:</span>
-                      <span className="text-green-400 font-semibold text-sm">${(profesional.valorTurno || 0).toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-300 text-sm">Ganancia por turno:</span>
-                      <span className="text-blue-400 font-semibold text-sm">${((profesional.valorTurno || 0) * (profesional.porcentaje || 0) / 100).toLocaleString()}</span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Tab: Registro de Pagos */}
-        {activeTab === 'registro' && (
-          <div className="space-y-6 sm:space-y-8">
-            <div className="bg-black/20 backdrop-blur-md rounded-2xl border border-purple-500/20 p-4 sm:p-6 lg:p-8">
-              <h2 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
-                Registrar Nuevo Pago
-              </h2>
-              
-              <div className="space-y-4 sm:space-y-6">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-purple-300 mb-2">
-                      Profesional
-                    </label>
-                    <select
-                      value={newPago.profesionalId}
-                      onChange={(e) => setNewPago({...newPago, profesionalId: e.target.value})}
-                      className="w-full px-4 py-3 bg-black/30 border border-purple-500/30 rounded-xl focus:border-purple-400 focus:outline-none transition-colors text-white"
-                    >
-                      <option value="">Seleccionar profesional</option>
-                      {profesionales.map(p => (
-                        <option key={p.id} value={p.id}>
-                          {p.nombre} - {p.especialidad}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-purple-300 mb-2">
-                      Paciente
-                    </label>
-                    <input
-                      type="text"
-                      value={newPago.paciente}
-                      onChange={(e) => setNewPago({...newPago, paciente: e.target.value})}
-                      className="w-full px-4 py-3 bg-black/30 border border-purple-500/30 rounded-xl focus:border-purple-400 focus:outline-none transition-colors text-white"
-                      placeholder="Nombre del paciente"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-purple-300 mb-2">
-                      Método de Pago
-                    </label>
-                    <select
-                      value={newPago.metodoPago}
-                      onChange={(e) => setNewPago({...newPago, metodoPago: e.target.value})}
-                      className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-black/30 border border-purple-500/30 rounded-xl focus:border-purple-400 focus:outline-none transition-colors text-white text-sm sm:text-base"
-                    >
-                      <option value="efectivo">💵 Efectivo</option>
-                      <option value="transferencia">🏦 Transferencia</option>
-                    </select>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-purple-300 mb-2">
-                      Fecha
-                    </label>
-                    <div className="space-y-2">
-                      <input
-                        type="date"
-                        value={newPago.fecha}
-                        onChange={(e) => setNewPago({...newPago, fecha: e.target.value})}
-                        className="w-full px-4 py-3 bg-black/30 border border-purple-500/30 rounded-xl focus:border-purple-400 focus:outline-none transition-colors text-white [color-scheme:dark]"
-                        style={{colorScheme: 'dark'}}
-                      />
-                      <div className="flex space-x-2">
-                        <button
-                          type="button"
-                          onClick={() => setNewPago({...newPago, fecha: new Date().toISOString().split('T')[0]})}
-                          className="px-3 py-1 bg-purple-600/30 hover:bg-purple-600/50 rounded-lg text-xs transition-all"
-                        >
-                          Hoy
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const yesterday = new Date();
-                            yesterday.setDate(yesterday.getDate() - 1);
-                            setNewPago({...newPago, fecha: yesterday.toISOString().split('T')[0]});
-                          }}
-                          className="px-3 py-1 bg-purple-600/30 hover:bg-purple-600/50 rounded-lg text-xs transition-all"
-                        >
-                          Ayer
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-purple-300 mb-2">
-                      Hora
-                    </label>
-                    <input
-                      type="time"
-                      value={newPago.hora}
-                      onChange={(e) => setNewPago({...newPago, hora: e.target.value})}
-                      className="w-full px-4 py-3 bg-black/30 border border-purple-500/30 rounded-xl focus:border-purple-400 focus:outline-none transition-colors text-white [color-scheme:dark]"
-                      style={{colorScheme: 'dark'}}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-purple-300 mb-2">
-                      Monto ($)
-                    </label>
-                    <input
-                      type="number"
-                      value={newPago.monto}
-                      onChange={(e) => setNewPago({...newPago, monto: e.target.value})}
-                      className="w-full px-4 py-3 bg-black/30 border border-purple-500/30 rounded-xl focus:border-purple-400 focus:outline-none transition-colors text-white"
-                      placeholder="15000"
-                    />
-                  </div>
-                </div>
-
-                {/* Campo de comprobante - solo para transferencias */}
-                {newPago.metodoPago === 'transferencia' && (
-                  <div>
-                    <label className="block text-sm font-medium text-purple-300 mb-2">
-                      Comprobante de Transferencia (Opcional)
-                    </label>
-                    <div className="space-y-2">
-                      <input
-                        type="text"
-                        value={newPago.comprobante}
-                        onChange={(e) => setNewPago({...newPago, comprobante: e.target.value})}
-                        className="w-full px-4 py-3 bg-black/30 border border-purple-500/30 rounded-xl focus:border-purple-400 focus:outline-none transition-colors text-white"
-                        placeholder="Ej: Número de operación, referencia, etc."
-                      />
-                      <p className="text-xs text-gray-400">
-                        💡 Puedes agregar el número de operación, CBU, alias o cualquier referencia del comprobante
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                <button
-                  onClick={handleAddPago}
-                  className="w-full bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 px-8 py-3 rounded-xl font-semibold transition-all transform hover:scale-[1.02] active:scale-[0.98]"
-                >
-                  Registrar Pago
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Tab: Dashboard */}
-        {activeTab === 'dashboard' && (
-          <div className="space-y-6 sm:space-y-8">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-              <div className="bg-gradient-to-br from-green-500/20 to-emerald-500/20 backdrop-blur-md rounded-2xl border border-green-500/30 p-4 sm:p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-green-300 text-xs sm:text-sm font-medium">Efectivo Hoy</p>
-                    <p className="text-lg sm:text-2xl font-bold text-green-400">${(stats.totalEfectivoHoy || 0).toLocaleString()}</p>
-                    <p className="text-xs text-green-300 mt-1">Clínica cobra</p>
-                  </div>
-                  <DollarSign className="w-6 h-6 sm:w-8 sm:h-8 text-green-400" />
-                </div>
-              </div>
-              
-              <div className="bg-gradient-to-br from-blue-500/20 to-cyan-500/20 backdrop-blur-md rounded-2xl border border-blue-500/30 p-4 sm:p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-blue-300 text-xs sm:text-sm font-medium">Transferencias Hoy</p>
-                    <p className="text-lg sm:text-2xl font-bold text-blue-400">${(stats.totalTransferenciaHoy || 0).toLocaleString()}</p>
-                    <p className="text-xs text-blue-300 mt-1">Profesional cobra</p>
-                  </div>
-                  <CreditCard className="w-6 h-6 sm:w-8 sm:h-8 text-blue-400" />
-                </div>
-              </div>
-              
-              <div className="bg-gradient-to-br from-purple-500/20 to-pink-500/20 backdrop-blur-md rounded-2xl border border-purple-500/30 p-4 sm:p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-purple-300 text-xs sm:text-sm font-medium">Pagos Hoy</p>
-                    <p className="text-lg sm:text-2xl font-bold text-purple-400">{stats.pagosHoy}</p>
-                    <p className="text-xs text-purple-300 mt-1">Total registrados</p>
-                  </div>
-                  <Calendar className="w-6 h-6 sm:w-8 sm:h-8 text-purple-400" />
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-black/20 backdrop-blur-md rounded-2xl border border-purple-500/20 p-6">
-              <h3 className="text-lg font-semibold text-purple-300 mb-4">Pagos Recientes</h3>
-              <div className="space-y-3 max-h-96 overflow-y-auto">
-                {pagos.slice(-10).reverse().map(pago => (
-                  <div key={pago.id} className="flex items-center justify-between p-4 bg-black/30 rounded-xl">
-                    <div className="flex items-center space-x-4">
-                      <div className={`w-3 h-3 rounded-full ${getEstadoColor(pago)}`}></div>
-                      <div>
-                        <p className="font-semibold">{pago.profesionalNombre}</p>
-                        <p className="text-sm text-gray-300">{pago.paciente} - {pago.fecha} {pago.hora}</p>
-                        <p className="text-xs text-gray-400">
-                          Estado: {pago.estado === 'pendiente' ? 'Pendiente' : 
-                                  pago.estado === 'pagado' ? 'Pagado' : 
-                                  pago.estado === 'recibida' ? 'Recibida' : 
-                                  'Completada'}
-                        </p>
-                        {pago.comprobante && (
-                          <div className="flex items-center space-x-1 mt-1">
-                            <FileImage className="w-3 h-3 text-blue-400" />
-                            <p className="text-xs text-blue-400 truncate">Comprobante: {pago.comprobante}</p>
-                          </div>
-                        )}
-                        {pago.comprobanteClinica && (
-                          <div className="flex items-center space-x-1 mt-1">
-                            <Check className="w-3 h-3 text-green-400" />
-                            <p className="text-xs text-green-400 truncate">Pago clínica: {pago.comprobanteClinica}</p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-semibold">${(pago.monto || 0).toLocaleString()}</p>
-                      <p className="text-xs text-gray-400">{pago.metodoPago}</p>
-                      {pago.fechaPago && (
-                        <p className="text-xs text-green-400">
-                          Pagado: {new Date(pago.fechaPago).toLocaleDateString('es-AR')}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Tab: Estado de Deudas */}
-        {activeTab === 'deudas' && (
-          <div className="space-y-8">
-            <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
-                Estado de Deudas por Profesional
-              </h2>
-              <button
-                onClick={() => setFiltros({...filtros, mostrarFiltros: !filtros.mostrarFiltros})}
-                className="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center space-x-2"
-              >
-                <span>{filtros.mostrarFiltros ? 'Ocultar' : 'Mostrar'} Filtros</span>
-                <span className={`transition-transform ${filtros.mostrarFiltros ? 'rotate-180' : ''}`}>▼</span>
-              </button>
-            </div>
-            
-            {/* Filtros expandibles */}
-            {filtros.mostrarFiltros && (
-              <div className="bg-black/20 backdrop-blur-md rounded-2xl border border-purple-500/20 p-6">
-                <h3 className="text-lg font-semibold text-purple-300 mb-4">Filtros</h3>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-purple-300 mb-2">Profesional</label>
-                    <select
-                      value={filtros.profesional}
-                      onChange={(e) => setFiltros({...filtros, profesional: e.target.value})}
-                      className="w-full px-3 py-2 bg-black/30 border border-purple-500/30 rounded-lg focus:border-purple-400 focus:outline-none transition-colors text-white text-sm"
-                    >
-                      <option value="">Todos los profesionales</option>
-                      {profesionales.map(p => (
-                        <option key={p.id} value={p.id}>{p.nombre}</option>
-                      ))}
-                    </select>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-purple-300 mb-2">Método de Pago</label>
-                    <select
-                      value={filtros.metodoPago}
-                      onChange={(e) => setFiltros({...filtros, metodoPago: e.target.value})}
-                      className="w-full px-3 py-2 bg-black/30 border border-purple-500/30 rounded-lg focus:border-purple-400 focus:outline-none transition-colors text-white text-sm"
-                    >
-                      <option value="">Todos los métodos</option>
-                      <option value="efectivo">Efectivo</option>
-                      <option value="transferencia">Transferencia</option>
-                    </select>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-purple-300 mb-2">Fecha Desde</label>
-                    <input
-                      type="date"
-                      value={filtros.fechaDesde}
-                      onChange={(e) => setFiltros({...filtros, fechaDesde: e.target.value})}
-                      className="w-full px-3 py-2 bg-black/30 border border-purple-500/30 rounded-lg focus:border-purple-400 focus:outline-none transition-colors text-white text-sm [color-scheme:dark]"
-                      style={{colorScheme: 'dark'}}
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-purple-300 mb-2">Fecha Hasta</label>
-                    <input
-                      type="date"
-                      value={filtros.fechaHasta}
-                      onChange={(e) => setFiltros({...filtros, fechaHasta: e.target.value})}
-                      className="w-full px-3 py-2 bg-black/30 border border-purple-500/30 rounded-lg focus:border-purple-400 focus:outline-none transition-colors text-white text-sm [color-scheme:dark]"
-                      style={{colorScheme: 'dark'}}
-                    />
-                  </div>
-                </div>
-                
-                <button
-                  onClick={() => setFiltros({profesional: '', metodoPago: '', fechaDesde: '', fechaHasta: '', mostrarFiltros: true})}
-                  className="mt-4 bg-gray-600 hover:bg-gray-700 px-4 py-2 rounded-lg text-sm font-medium transition-all"
-                >
-                  Limpiar Filtros
-                </button>
-              </div>
-            )}
-            
-            {/* Lista de pagos individuales */}
-            <div className="bg-black/20 backdrop-blur-md rounded-2xl border border-purple-500/20 p-6">
-              <h3 className="text-lg font-semibold text-purple-300 mb-4">Pagos Pendientes Individuales</h3>
-              <div className="space-y-3 max-h-96 overflow-y-auto">
-                {aplicarFiltros(pagos)
-                  .filter(pago => {
-                    // Solo mostrar pagos pendientes o recibidos
-                    return (pago.metodoPago === 'efectivo' && pago.estado === 'pendiente') || 
-                           (pago.metodoPago === 'transferencia' && pago.estado === 'recibida');
-                  })
-                  .map(pago => (
-                    <div key={pago.id} className="flex items-center justify-between p-4 bg-black/30 rounded-xl">
-                      <div className="flex items-center space-x-4">
-                        <div className={`w-3 h-3 rounded-full ${getEstadoColor(pago)}`}></div>
-                        <div>
-                          <p className="font-semibold">{pago.profesionalNombre}</p>
-                          <p className="text-sm text-gray-300">{pago.paciente} - {pago.fecha} {pago.hora}</p>
-                          <p className="text-xs text-gray-400">{getEstadoTexto(pago)}</p>
-                          {pago.comprobante && (
-                            <div className="flex items-center space-x-1 mt-1">
-                              <FileImage className="w-3 h-3 text-blue-400" />
-                              <p className="text-xs text-blue-400">Comprobante: {pago.comprobante}</p>
-                            </div>
-                          )}
-                          {pago.comprobanteClinica && (
-                            <div className="flex items-center space-x-1 mt-1">
-                              <Check className="w-3 h-3 text-green-400" />
-                              <p className="text-xs text-green-400">Pago clínica: {pago.comprobanteClinica}</p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      <div className="text-right flex items-center space-x-4">
-                        <div>
-                          <p className="font-semibold">${(pago.monto || 0).toLocaleString()}</p>
-                          <p className="text-xs text-gray-400">{pago.metodoPago}</p>
-                          {pago.metodoPago === 'efectivo' ? (
-                            <p className="text-xs text-orange-400">Debe: ${(pago.gananciaProfesional || 0).toLocaleString()}</p>
-                          ) : (
-                            <p className="text-xs text-blue-400">Comisión: ${(pago.gananciaClinica || 0).toLocaleString()}</p>
-                          )}
-                        </div>
-                        <button
-                          onClick={() => marcarPagoIndividual(pago.id, pago.metodoPago)}
-                          className="bg-green-600 hover:bg-green-700 px-3 py-1 rounded-lg text-xs font-medium transition-all flex items-center space-x-1"
-                        >
-                          <Check className="w-3 h-3" />
-                          <span>Marcar Pagado</span>
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-              </div>
-            </div>
-            
-            <div className="space-y-6">
-              {stats.deudaPorProfesional.map(deuda => (
-                <div key={deuda.id} className="bg-black/20 backdrop-blur-md rounded-2xl border border-purple-500/20 p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-xl font-semibold text-purple-300">{deuda.nombre}</h3>
-                    <div className="flex space-x-3">
-                      {deuda.efectivoPendiente > 0 && (
-                        <button
-                          onClick={() => marcarEfectivoPagado(deuda.id)}
-                          className="bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center space-x-2"
-                        >
-                          <Check className="w-4 h-4" />
-                          <span>Marcar Efectivos Pagados</span>
-                        </button>
-                      )}
-                      {deuda.comisionPendiente > 0 && (
-                        <button
-                          onClick={() => marcarTransferenciasCobradas(deuda.id)}
-                          className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center space-x-2"
-                        >
-                          <CreditCard className="w-4 h-4" />
-                          <span>Marcar Comisiones Cobradas</span>
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {deuda.efectivoPendiente > 0 && (
-                      <div className="bg-orange-500/10 border border-orange-500/30 rounded-xl p-4">
-                        <div className="flex items-center space-x-2 mb-2">
-                          <Clock className="w-5 h-5 text-orange-400" />
-                          <span className="font-semibold text-orange-400">Efectivos Pendientes</span>
-                        </div>
-                        <p className="text-2xl font-bold text-orange-300">${(deuda.efectivoPendiente || 0).toLocaleString()}</p>
-                        <p className="text-sm text-orange-300">{deuda.cantidadEfectivos} pagos pendientes</p>
-                      </div>
-                    )}
-                    
-                    {deuda.comisionPendiente > 0 && (
-                      <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
-                        <div className="flex items-center space-x-2 mb-2">
-                          <TrendingUp className="w-5 h-5 text-blue-400" />
-                          <span className="font-semibold text-blue-400">Comisiones Pendientes</span>
-                        </div>
-                        <p className="text-2xl font-bold text-blue-300">${(deuda.comisionPendiente || 0).toLocaleString()}</p>
-                        <p className="text-sm text-blue-300">{deuda.cantidadTransferencias} transferencias</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-              
-              {stats.deudaPorProfesional.length === 0 && (
-                <div className="text-center py-12">
-                  <Check className="w-16 h-16 text-green-400 mx-auto mb-4" />
-                  <h3 className="text-xl font-semibold text-green-400 mb-2">¡Todo al día!</h3>
-                  <p className="text-gray-400">No hay deudas pendientes en este momento.</p>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-        
-        {/* Tab: Reportes */}
-        {activeTab === 'reportes' && (
-          <div className="space-y-8">
-            <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
-                Reportes e Ingresos
-              </h2>
-              <div className="flex space-x-3">
-                <button
-                  onClick={exportarReporteCSV}
-                  className="bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center space-x-2"
-                >
-                  <Upload className="w-4 h-4" />
-                  <span>Exportar CSV</span>
-                </button>
-                <button
-                  onClick={() => setFiltrosReportes({...filtrosReportes, mostrarFiltros: !filtrosReportes.mostrarFiltros})}
-                  className="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center space-x-2"
-                >
-                  <span>{filtrosReportes.mostrarFiltros ? 'Ocultar' : 'Mostrar'} Filtros</span>
-                  <span className={`transition-transform ${filtrosReportes.mostrarFiltros ? 'rotate-180' : ''}`}>▼</span>
-                </button>
-              </div>
-            </div>
-            
-            {/* Filtros expandibles para reportes */}
-            {filtrosReportes.mostrarFiltros && (
-              <div className="bg-black/20 backdrop-blur-md rounded-2xl border border-purple-500/20 p-6">
-                <h3 className="text-lg font-semibold text-purple-300 mb-4">Filtros de Reporte</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-purple-300 mb-2">Profesional</label>
-                    <select
-                      value={filtrosReportes.profesional}
-                      onChange={(e) => setFiltrosReportes({...filtrosReportes, profesional: e.target.value})}
-                      className="w-full px-3 py-2 bg-black/30 border border-purple-500/30 rounded-lg focus:border-purple-400 focus:outline-none transition-colors text-white text-sm"
-                    >
-                      <option value="">Todos los profesionales</option>
-                      {profesionales.map(p => (
-                        <option key={p.id} value={p.id}>{p.nombre}</option>
-                      ))}
-                    </select>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-purple-300 mb-2">Fecha Desde</label>
-                    <input
-                      type="date"
-                      value={filtrosReportes.fechaDesde}
-                      onChange={(e) => setFiltrosReportes({...filtrosReportes, fechaDesde: e.target.value})}
-                      className="w-full px-3 py-2 bg-black/30 border border-purple-500/30 rounded-lg focus:border-purple-400 focus:outline-none transition-colors text-white text-sm [color-scheme:dark]"
-                      style={{colorScheme: 'dark'}}
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-purple-300 mb-2">Fecha Hasta</label>
-                    <input
-                      type="date"
-                      value={filtrosReportes.fechaHasta}
-                      onChange={(e) => setFiltrosReportes({...filtrosReportes, fechaHasta: e.target.value})}
-                      className="w-full px-3 py-2 bg-black/30 border border-purple-500/30 rounded-lg focus:border-purple-400 focus:outline-none transition-colors text-white text-sm [color-scheme:dark]"
-                      style={{colorScheme: 'dark'}}
-                    />
-                  </div>
-                </div>
-                
-                <button
-                  onClick={() => setFiltrosReportes({profesional: '', fechaDesde: '', fechaHasta: '', mostrarFiltros: true})}
-                  className="mt-4 bg-gray-600 hover:bg-gray-700 px-4 py-2 rounded-lg text-sm font-medium transition-all"
-                >
-                  Limpiar Filtros
-                </button>
-              </div>
-            )}
-            
-            {(() => {
-              const reportes = calcularReportes();
-              return (
-                <>
-                  {/* Resumen General */}
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                    <div className="bg-gradient-to-br from-green-500/20 to-emerald-500/20 backdrop-blur-md rounded-2xl border border-green-500/30 p-6">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-green-300 text-sm font-medium">Total Facturado</p>
-                          <p className="text-2xl font-bold text-green-400">${(reportes.totalGeneral || 0).toLocaleString()}</p>
-                          <p className="text-xs text-green-300 mt-1">{reportes.cantidadConsultas} consultas</p>
-                        </div>
-                        <DollarSign className="w-8 h-8 text-green-400" />
-                      </div>
-                    </div>
-                    
-                    <div className="bg-gradient-to-br from-blue-500/20 to-cyan-500/20 backdrop-blur-md rounded-2xl border border-blue-500/30 p-6">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-blue-300 text-sm font-medium">Ganancias Profesionales</p>
-                          <p className="text-2xl font-bold text-blue-400">${(reportes.totalGananciasProfesionales || 0).toLocaleString()}</p>
-                          <p className="text-xs text-blue-300 mt-1">Total a pagar</p>
-                        </div>
-                        <User className="w-8 h-8 text-blue-400" />
-                      </div>
-                    </div>
-                    
-                    <div className="bg-gradient-to-br from-purple-500/20 to-pink-500/20 backdrop-blur-md rounded-2xl border border-purple-500/30 p-6">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-purple-300 text-sm font-medium">Ganancias Clínica</p>
-                          <p className="text-2xl font-bold text-purple-400">${(reportes.totalGananciasClinica || 0).toLocaleString()}</p>
-                          <p className="text-xs text-purple-300 mt-1">Comisiones</p>
-                        </div>
-                        <TrendingUp className="w-8 h-8 text-purple-400" />
-                      </div>
-                    </div>
-                    
-                    <div className="bg-gradient-to-br from-orange-500/20 to-red-500/20 backdrop-blur-md rounded-2xl border border-orange-500/30 p-6">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-orange-300 text-sm font-medium">Promedio x Consulta</p>
-                          <p className="text-2xl font-bold text-orange-400">
-                            ${reportes.cantidadConsultas > 0 ? Math.round(reportes.totalGeneral / reportes.cantidadConsultas).toLocaleString() : '0'}
-                          </p>
-                          <p className="text-xs text-orange-300 mt-1">Por turno</p>
-                        </div>
-                        <Calendar className="w-8 h-8 text-orange-400" />
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Desglose por Método de Pago */}
-                  <div className="bg-black/20 backdrop-blur-md rounded-2xl border border-purple-500/20 p-6">
-                    <h3 className="text-lg font-semibold text-purple-300 mb-4">Desglose por Método de Pago</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-4">
-                        <div className="flex items-center space-x-2 mb-2">
-                          <DollarSign className="w-5 h-5 text-green-400" />
-                          <span className="font-semibold text-green-400">Efectivo</span>
-                        </div>
-                        <p className="text-2xl font-bold text-green-300">${(reportes.totalEfectivo || 0).toLocaleString()}</p>
-                        <p className="text-sm text-green-300">
-                          {Math.round((reportes.totalEfectivo / reportes.totalGeneral) * 100) || 0}% del total
-                        </p>
-                      </div>
-                      
-                      <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
-                        <div className="flex items-center space-x-2 mb-2">
-                          <CreditCard className="w-5 h-5 text-blue-400" />
-                          <span className="font-semibold text-blue-400">Transferencias</span>
-                        </div>
-                        <p className="text-2xl font-bold text-blue-300">${(reportes.totalTransferencias || 0).toLocaleString()}</p>
-                        <p className="text-sm text-blue-300">
-                          {Math.round((reportes.totalTransferencias / reportes.totalGeneral) * 100) || 0}% del total
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Reporte por Profesional */}
-                  <div className="bg-black/20 backdrop-blur-md rounded-2xl border border-purple-500/20 p-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-lg font-semibold text-purple-300">Reporte por Profesional</h3>
-                      {profesionalDetallado && (
-                        <button
-                          onClick={() => setProfesionalDetallado(null)}
-                          className="bg-gray-600 hover:bg-gray-700 px-3 py-1 rounded-lg text-xs font-medium transition-all flex items-center space-x-1"
-                        >
-                          <span>← Volver al Resumen</span>
-                        </button>
-                      )}
-                    </div>
-                    
-                    {!profesionalDetallado ? (
-                      <div className="space-y-4">
-                        {reportes.reportePorProfesional.map(reporte => (
-                          <div 
-                            key={reporte.id} 
-                            className="bg-black/30 rounded-xl p-4 cursor-pointer hover:bg-black/40 transition-all transform hover:scale-[1.01] border border-transparent hover:border-purple-500/30"
-                            onClick={() => setProfesionalDetallado(reporte.id)}
-                          >
-                            <div className="flex items-center justify-between mb-3">
-                              <div>
-                                <h4 className="font-semibold text-lg">{reporte.nombre}</h4>
-                                <p className="text-sm text-gray-300">{reporte.especialidad}</p>
-                              </div>
-                              <div className="text-right">
-                                <p className="text-lg font-bold text-green-400">${(reporte.totalFacturado || 0).toLocaleString()}</p>
-                                <p className="text-xs text-gray-400">{reporte.cantidadConsultas} consultas</p>
-                                <p className="text-xs text-purple-400">👆 Click para detalles</p>
-                              </div>
-                            </div>
-                            
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                              <div>
-                                <p className="text-gray-300">Ganancia Profesional</p>
-                                <p className="font-semibold text-blue-400">${(reporte.gananciaProfesional || 0).toLocaleString()}</p>
-                              </div>
-                              <div>
-                                <p className="text-gray-300">Comisión Clínica</p>
-                                <p className="font-semibold text-purple-400">${(reporte.gananciaClinica || 0).toLocaleString()}</p>
-                              </div>
-                              <div>
-                                <p className="text-gray-300">Efectivos</p>
-                                <p className="font-semibold text-green-400">
-                                  {reporte.efectivos.cantidad} - ${(reporte.efectivos.monto || 0).toLocaleString()}
-                                </p>
-                              </div>
-                              <div>
-                                <p className="text-gray-300">Transferencias</p>
-                                <p className="font-semibold text-cyan-400">
-                                  {reporte.transferencias.cantidad} - ${(reporte.transferencias.monto || 0).toLocaleString()}
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                        
-                        {reportes.reportePorProfesional.length === 0 && (
-                          <div className="text-center py-8">
-                            <TrendingUp className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                            <p className="text-gray-400">No hay datos para mostrar con los filtros aplicados</p>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      (() => {
-                        const detalles = calcularDetallesProfesional(profesionalDetallado);
-                        if (!detalles) return <p className="text-red-400">Error al cargar detalles</p>;
-                        
-                        return (
-                          <div className="space-y-6">
-                            {/* Header del profesional */}
-                            <div className="bg-gradient-to-r from-purple-500/20 to-blue-500/20 rounded-xl p-6 border border-purple-500/30">
-                              <div className="flex items-center justify-between">
-                                <div>
-                                  <h3 className="text-2xl font-bold">{detalles.profesional.nombre}</h3>
-                                  <p className="text-purple-300">{detalles.profesional.especialidad}</p>
-                                  <p className="text-sm text-gray-400">
-                                    {detalles.profesional.porcentaje}% profesional • ${(detalles.profesional.valorTurno || 0).toLocaleString()} por turno
-                                  </p>
-                                </div>
-                                <div className="text-right">
-                                  <p className="text-3xl font-bold text-green-400">
-                                    ${(detalles.estadisticas.totalFacturado || 0).toLocaleString()}
-                                  </p>
-                                  <p className="text-sm text-gray-300">Total facturado</p>
-                                </div>
-                              </div>
-                            </div>
-                            
-                            {/* Estadísticas principales */}
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                              <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
-                                <p className="text-blue-300 text-sm">Total Consultas</p>
-                                <p className="text-2xl font-bold text-blue-400">{detalles.estadisticas.totalConsultas}</p>
-                                <p className="text-xs text-blue-300">
-                                  {detalles.estadisticas.consultasPorDia.toFixed(1)} por día promedio
-                                </p>
-                              </div>
-                              
-                              <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-4">
-                                <p className="text-green-300 text-sm">Ganancia Total</p>
-                                <p className="text-2xl font-bold text-green-400">
-                                  ${(detalles.estadisticas.totalGanado || 0).toLocaleString()}
-                                </p>
-                                <p className="text-xs text-green-300">
-                                  ${Math.round(detalles.estadisticas.promedioPorConsulta * detalles.profesional.porcentaje / 100).toLocaleString()} promedio
-                                </p>
-                              </div>
-                              
-                              <div className="bg-purple-500/10 border border-purple-500/30 rounded-xl p-4">
-                                <p className="text-purple-300 text-sm">Días Activos</p>
-                                <p className="text-2xl font-bold text-purple-400">{detalles.estadisticas.diasActivos}</p>
-                                <p className="text-xs text-purple-300">
-                                  de {detalles.estadisticas.diasTranscurridos} días totales
-                                </p>
-                              </div>
-                              
-                              <div className="bg-orange-500/10 border border-orange-500/30 rounded-xl p-4">
-                                <p className="text-orange-300 text-sm">Método Preferido</p>
-                                <p className="text-lg font-bold text-orange-400">
-                                  {detalles.estadisticas.metodosPreferidos.efectivo.porcentaje > 
-                                   detalles.estadisticas.metodosPreferidos.transferencia.porcentaje ? 
-                                   '💵 Efectivo' : '🏦 Transferencia'}
-                                </p>
-                                <p className="text-xs text-orange-300">
-                                  {Math.round(Math.max(
-                                    detalles.estadisticas.metodosPreferidos.efectivo.porcentaje,
-                                    detalles.estadisticas.metodosPreferidos.transferencia.porcentaje
-                                  ))}% de las veces
-                                </p>
-                              </div>
-                            </div>
-                            
-                            {/* Estado de deudas */}
-                            {(detalles.pendientes.efectivos > 0 || detalles.pendientes.transferencias > 0) && (
-                              <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4">
-                                <h4 className="font-semibold text-red-300 mb-3">⚠️ Deudas Pendientes</h4>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                  {detalles.pendientes.efectivos > 0 && (
-                                    <div>
-                                      <p className="text-orange-300 text-sm">Efectivos Pendientes</p>
-                                      <p className="text-xl font-bold text-orange-400">
-                                        ${(detalles.pendientes.efectivos || 0).toLocaleString()}
-                                      </p>
-                                      <p className="text-xs text-orange-300">
-                                        {detalles.pendientes.cantidadEfectivos} pagos pendientes
-                                      </p>
-                                    </div>
-                                  )}
-                                  {detalles.pendientes.transferencias > 0 && (
-                                    <div>
-                                      <p className="text-blue-300 text-sm">Comisiones Pendientes</p>
-                                      <p className="text-xl font-bold text-blue-400">
-                                        ${(detalles.pendientes.transferencias || 0).toLocaleString()}
-                                      </p>
-                                      <p className="text-xs text-blue-300">
-                                        {detalles.pendientes.cantidadTransferencias} transferencias
-                                      </p>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            )}
-                            
-                            {/* Historial de pagos */}
-                            <div className="bg-black/30 rounded-xl p-4">
-                              <h4 className="font-semibold text-purple-300 mb-4">📋 Historial Completo de Pagos</h4>
-                              <div className="space-y-2 max-h-64 overflow-y-auto">
-                                {detalles.pagosProfesional.map(pago => (
-                                  <div key={pago.id} className="flex items-center justify-between p-3 bg-black/40 rounded-lg">
-                                    <div className="flex items-center space-x-3">
-                                      <div className={`w-3 h-3 rounded-full ${getEstadoColor(pago)}`}></div>
-                                      <div>
-                                        <p className="font-medium">{pago.paciente}</p>
-                                        <p className="text-xs text-gray-400">{pago.fecha} {pago.hora}</p>
-                                        {pago.comprobante && (
-                                          <p className="text-xs text-blue-400">📄 {pago.comprobante}</p>
-                                        )}
-                                        {pago.comprobanteClinica && (
-                                          <p className="text-xs text-green-400">✅ {pago.comprobanteClinica}</p>
-                                        )}
-                                      </div>
-                                    </div>
-                                    <div className="text-right">
-                                      <p className="font-semibold">${(pago.monto || 0).toLocaleString()}</p>
-                                      <p className="text-xs text-gray-400">{pago.metodoPago}</p>
-                                      <p className="text-xs">
-                                        <span className="text-blue-400">+${(pago.gananciaProfesional || 0).toLocaleString()}</span>
-                                        {' / '}
-                                                                                  <span className="text-purple-400">${(pago.gananciaClinica || 0).toLocaleString()}</span>
-                                      </p>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })()
-                    )}
-                  </div>
-                </>
-              );
-            })()}
-          </div>
-        )}
-        
-        {/* Tab: Logs */}
-        {activeTab === 'logs' && (
-          <div className="space-y-8">
-            <h2 className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
-              Registro de Actividad (Logs)
-            </h2>
-            
-            <div className="bg-black/20 backdrop-blur-md rounded-2xl border border-purple-500/20 p-6">
-              <div className="space-y-3 max-h-96 overflow-y-auto">
-                {logs.map(log => (
-                  <div key={log.id} className="p-4 bg-black/30 rounded-xl">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center space-x-2">
-                        <div className={`w-2 h-2 rounded-full ${
-                          log.tipo === 'profesional_agregado' ? 'bg-green-400' :
-                          log.tipo === 'pago_registrado' ? 'bg-blue-400' :
-                          log.tipo === 'pago_marcado' ? 'bg-yellow-400' :
-                          'bg-purple-400'
-                        }`}></div>
-                        <span className="font-semibold text-sm">{log.descripcion}</span>
-                      </div>
-                      <span className="text-xs text-gray-400">
-                        {new Date(log.timestamp).toLocaleString('es-AR')}
-                      </span>
-                    </div>
-                    {Object.keys(log.detalles).length > 0 && (
-                      <div className="text-xs text-gray-300 ml-4">
-                        {Object.entries(log.detalles).map(([key, value]) => (
-                          <span key={key} className="mr-4">
-                            <strong>{key}:</strong> {typeof value === 'number' ? value.toLocaleString() : value}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ))}
-                
-                {logs.length === 0 && (
-                  <div className="text-center py-12">
-                    <Calendar className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                    <h3 className="text-xl font-semibold text-gray-400 mb-2">Sin actividad registrada</h3>
-                    <p className="text-gray-500">Los logs aparecerán aquí conforme uses la aplicación.</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Modal de Comprobantes */}
-      {showComprobanteModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-gradient-to-br from-slate-900 to-purple-900 rounded-2xl border border-purple-500/30 p-4 sm:p-6 lg:p-8 max-w-md w-full mx-4">
-            <div className="flex items-center justify-between mb-4 sm:mb-6">
-              <h3 className="text-lg sm:text-xl font-semibold text-purple-300">Agregar Comprobantes</h3>
-              <button
-                onClick={() => setShowComprobanteModal(false)}
-                className="text-gray-400 hover:text-white transition-colors"
-              >
-                <X className="w-4 h-4 sm:w-5 sm:h-5" />
-              </button>
-            </div>
-            
-            <div className="space-y-4 sm:space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-purple-300 mb-2">
-                  Comprobante del Profesional (Opcional)
-                </label>
-                <input
-                  type="text"
-                  value={comprobantes.profesional}
-                  onChange={(e) => setComprobantes({...comprobantes, profesional: e.target.value})}
-                  className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-black/30 border border-purple-500/30 rounded-xl focus:border-purple-400 focus:outline-none transition-colors text-white text-sm sm:text-base"
-                  placeholder="Ej: Número de operación, referencia, etc."
-                />
-                <p className="text-xs text-gray-400 mt-1">
-                  💡 Comprobante de la transferencia que envió el profesional
-                </p>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-purple-300 mb-2">
-                  Comprobante de Pago de la Clínica (Opcional)
-                </label>
-                <input
-                  type="text"
-                  value={comprobantes.clinica}
-                  onChange={(e) => setComprobantes({...comprobantes, clinica: e.target.value})}
-                  className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-black/30 border border-purple-500/30 rounded-xl focus:border-purple-400 focus:outline-none transition-colors text-white text-sm sm:text-base"
-                  placeholder="Ej: Número de transferencia de pago, etc."
-                />
-                <p className="text-xs text-gray-400 mt-1">
-                  💡 Comprobante del pago que realizó la clínica al profesional
-                </p>
-              </div>
-            </div>
-            
-            <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4 mt-6 sm:mt-8">
-              <button
-                onClick={confirmarComprobantes}
-                className="flex-1 bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-semibold transition-all text-sm sm:text-base"
-              >
-                Confirmar
-              </button>
-              <button
-                onClick={() => setShowComprobanteModal(false)}
-                className="flex-1 bg-gray-600 hover:bg-gray-700 px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-semibold transition-all text-sm sm:text-base"
-              >
-                Cancelar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+  // Renderizar el contenido
+  return renderContent();
 };
 
 export default ConsultorioPagosApp;
