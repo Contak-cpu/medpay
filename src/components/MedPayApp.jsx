@@ -21,6 +21,50 @@ const ConsultorioPagosApp = () => {
     clearAllData,
     refreshData
   } = useSupabase();
+  
+  // Mostrar error si hay problema con Supabase
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-black flex items-center justify-center p-4">
+        <div className="bg-black/20 backdrop-blur-md rounded-2xl border border-red-500/20 p-8 max-w-md w-full">
+          <div className="text-center">
+            <AlertCircle className="w-16 h-16 text-red-400 mx-auto mb-4" />
+            <h2 className="text-2xl font-bold text-red-400 mb-4">Error de Conexión</h2>
+            <p className="text-gray-300 mb-4">
+              No se pudo conectar con la base de datos. Verifica tu conexión a internet y las variables de entorno.
+            </p>
+            <p className="text-sm text-gray-400 mb-6">
+              Error: {error}
+            </p>
+            <button
+              onClick={() => window.location.reload()}
+              className="bg-purple-600 hover:bg-purple-700 px-6 py-3 rounded-xl font-semibold transition-all"
+            >
+              Reintentar
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
+  // Mostrar loading mientras carga
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-black flex items-center justify-center p-4">
+        <div className="bg-black/20 backdrop-blur-md rounded-2xl border border-purple-500/20 p-8 max-w-md w-full">
+          <div className="text-center">
+            <div className="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <h2 className="text-2xl font-bold text-purple-400 mb-4">Cargando...</h2>
+            <p className="text-gray-300">
+              Conectando con la base de datos
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
   const [showAddProfesional, setShowAddProfesional] = useState(false);
   const [showNotification, setShowNotification] = useState('');
   const [showComprobanteModal, setShowComprobanteModal] = useState(false);

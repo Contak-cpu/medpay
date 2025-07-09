@@ -18,18 +18,26 @@ export function useSupabase() {
       setLoading(true)
       setError(null)
       
+      console.log('Iniciando carga de datos...')
+      
       const [profesionalesData, pagosData, logsData] = await Promise.all([
         db.getProfesionales(),
         db.getPagos(),
         db.getLogs()
       ])
       
+      console.log('Datos cargados exitosamente:', {
+        profesionales: profesionalesData.length,
+        pagos: pagosData.length,
+        logs: logsData.length
+      })
+      
       setProfesionales(profesionalesData)
       setPagos(pagosData)
       setLogs(logsData)
     } catch (err) {
       console.error('Error loading data:', err)
-      setError(err.message)
+      setError(err.message || 'Error al cargar datos')
     } finally {
       setLoading(false)
     }
