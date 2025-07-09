@@ -29,6 +29,7 @@ const ConsultorioPagosApp = () => {
     profesional: '',
     clinica: ''
   });
+  const [isSubmittingProfesional, setIsSubmittingProfesional] = useState(false);
   
   // Filtros para deudas
   const [filtros, setFiltros] = useState({
@@ -150,6 +151,7 @@ const ConsultorioPagosApp = () => {
 
   const handleAddProfesional = async () => {
     if (validarProfesionalCompleto()) {
+      setIsSubmittingProfesional(true);
       try {
         const profesionalData = {
           nombre: newProfesional.nombre.trim(),
@@ -160,13 +162,27 @@ const ConsultorioPagosApp = () => {
         
         await addProfesional(profesionalData);
         
+        // Refrescar datos para asegurar sincronización
+        await refreshData();
+        
+        // Limpiar formulario
         setNewProfesional({ nombre: '', especialidad: '', porcentaje: '', valorTurno: '' });
         setErroresProfesional({ nombre: '', especialidad: '', porcentaje: '', valorTurno: '' });
+        
+        // Cerrar modal
         setShowAddProfesional(false);
+        
+        // Mostrar notificación de éxito
         showSuccessNotification('Profesional agregado con éxito');
+        
+        // Asegurar que estamos en la pestaña de profesionales
+        setActiveTab('profesionales');
+        
       } catch (error) {
         console.error('Error adding profesional:', error);
-        showSuccessNotification('Error al agregar profesional');
+        showSuccessNotification('Error al agregar profesional: ' + (error.message || 'Error desconocido'));
+      } finally {
+        setIsSubmittingProfesional(false);
       }
     }
   };
@@ -934,13 +950,30 @@ const ConsultorioPagosApp = () => {
                   <div className="flex space-x-4">
                     <button
                       onClick={handleAddProfesional}
-                      className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 px-8 py-3 rounded-xl font-semibold transition-all"
+                      disabled={isSubmittingProfesional}
+                      className={`px-8 py-3 rounded-xl font-semibold transition-all ${
+                        isSubmittingProfesional 
+                          ? 'bg-gray-500 cursor-not-allowed' 
+                          : 'bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600'
+                      }`}
                     >
-                      Agregar Profesional
+                      {isSubmittingProfesional ? (
+                        <div className="flex items-center space-x-2">
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                          <span>Guardando...</span>
+                        </div>
+                      ) : (
+                        'Agregar Profesional'
+                      )}
                     </button>
                     <button
                       onClick={() => setShowAddProfesional(false)}
-                      className="bg-gray-600 hover:bg-gray-700 px-8 py-3 rounded-xl font-semibold transition-all"
+                      disabled={isSubmittingProfesional}
+                      className={`px-8 py-3 rounded-xl font-semibold transition-all ${
+                        isSubmittingProfesional 
+                          ? 'bg-gray-500 cursor-not-allowed' 
+                          : 'bg-gray-600 hover:bg-gray-700'
+                      }`}
                     >
                       Cancelar
                     </button>
