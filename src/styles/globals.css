@@ -5,16 +5,50 @@
 @layer base {
   html {
     font-family: 'Inter', system-ui, sans-serif;
+    scroll-behavior: smooth;
   }
   
   body {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
   
   * {
     box-sizing: border-box;
+  }
+
+  /* Mejoras para dispositivos móviles */
+  @media (max-width: 640px) {
+    body {
+      font-size: 14px;
+    }
+    
+    /* Mejorar scroll en móviles */
+    .overflow-y-auto {
+      -webkit-overflow-scrolling: touch;
+    }
+    
+    /* Evitar zoom en inputs en iOS */
+    input[type="text"],
+    input[type="number"],
+    input[type="email"],
+    input[type="tel"],
+    input[type="date"],
+    input[type="time"],
+    select,
+    textarea {
+      font-size: 16px;
+    }
+  }
+
+  /* Mejoras para tablets */
+  @media (min-width: 641px) and (max-width: 1024px) {
+    body {
+      font-size: 15px;
+    }
   }
 }
 
@@ -39,5 +73,26 @@
     90% {
       transform: translate3d(0, -4px, 0) scaleY(1.02);
     }
+  }
+
+  /* Clases responsive personalizadas */
+  .mobile-menu {
+    @apply lg:hidden;
+  }
+  
+  .desktop-menu {
+    @apply hidden lg:flex;
+  }
+  
+  .responsive-text {
+    @apply text-sm sm:text-base lg:text-lg;
+  }
+  
+  .responsive-padding {
+    @apply p-4 sm:p-6 lg:p-8;
+  }
+  
+  .responsive-grid {
+    @apply grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4;
   }
 }

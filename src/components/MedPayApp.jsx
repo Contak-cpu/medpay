@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Plus, User, CreditCard, DollarSign, Calendar, TrendingUp, Zap, Upload, Check, Clock, FileImage, X } from 'lucide-react';
+import { Plus, User, CreditCard, DollarSign, Calendar, TrendingUp, Zap, Upload, Check, Clock, FileImage, X, Menu } from 'lucide-react';
 
 const ConsultorioPagosApp = () => {
   const [activeTab, setActiveTab] = useState('profesionales');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
   // Datos de prueba
   const datosDeEjemplo = {
@@ -766,20 +767,20 @@ const ConsultorioPagosApp = () => {
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white">
       {/* Header */}
       <div className="bg-black/20 backdrop-blur-md border-b border-purple-500/20">
-        <div className="container mx-auto px-6 py-4">
+        <div className="container mx-auto px-4 sm:px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-blue-500 rounded-xl flex items-center justify-center">
-                <Zap className="w-6 h-6 text-white" />
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-r from-purple-500 to-blue-500 rounded-xl flex items-center justify-center">
+                <Zap className="w-4 h-4 sm:w-6 sm:h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
+                <h1 className="text-lg sm:text-2xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
                   MedPay AI
                 </h1>
-                <p className="text-purple-300 text-sm">Sistema de Gestión de Pagos</p>
+                <p className="text-purple-300 text-xs sm:text-sm">Sistema de Gestión de Pagos</p>
               </div>
             </div>
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2 sm:space-x-4">
               <button
                 onClick={() => {
                   if (confirm('¿Estás seguro de que quieres limpiar todos los datos? Esta acción no se puede deshacer.')) {
@@ -789,14 +790,14 @@ const ConsultorioPagosApp = () => {
                     showSuccessNotification('Datos limpiados correctamente');
                   }
                 }}
-                className="bg-red-600/20 hover:bg-red-600/30 px-3 py-1 rounded-lg text-xs font-medium transition-all flex items-center space-x-1 border border-red-500/30"
+                className="bg-red-600/20 hover:bg-red-600/30 px-2 py-1 sm:px-3 rounded-lg text-xs font-medium transition-all flex items-center space-x-1 border border-red-500/30"
               >
                 <X className="w-3 h-3" />
-                <span>Limpiar Datos</span>
+                <span className="hidden sm:inline">Limpiar Datos</span>
               </button>
               <div className="text-right">
-                <p className="text-sm text-purple-300">Hoy</p>
-                <p className="text-lg font-semibold">{new Date().toLocaleDateString('es-AR')}</p>
+                <p className="text-xs sm:text-sm text-purple-300">Hoy</p>
+                <p className="text-sm sm:text-lg font-semibold">{new Date().toLocaleDateString('es-AR')}</p>
               </div>
             </div>
           </div>
@@ -805,8 +806,20 @@ const ConsultorioPagosApp = () => {
 
       {/* Navigation */}
       <div className="bg-black/10 backdrop-blur-md border-b border-purple-500/10">
-        <div className="container mx-auto px-6">
-          <nav className="flex space-x-8">
+        <div className="container mx-auto px-4 sm:px-6">
+          {/* Mobile Menu Button */}
+          <div className="flex lg:hidden">
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="flex items-center space-x-2 px-4 py-4 text-gray-300 hover:text-purple-300 transition-all"
+            >
+              <Menu className="w-5 h-5" />
+              <span className="text-sm font-medium">Menú</span>
+            </button>
+          </div>
+          
+          {/* Desktop Navigation */}
+          <nav className="hidden lg:flex space-x-8">
             <button
               onClick={() => setActiveTab('profesionales')}
               className={`flex items-center space-x-2 px-4 py-4 border-b-2 transition-all ${
@@ -867,40 +880,105 @@ const ConsultorioPagosApp = () => {
               <span>Logs</span>
             </button>
           </nav>
+          
+          {/* Mobile Navigation */}
+          {mobileMenuOpen && (
+            <nav className="lg:hidden flex flex-col space-y-2 py-4">
+              <button
+                onClick={() => { setActiveTab('profesionales'); setMobileMenuOpen(false); }}
+                className={`flex items-center space-x-2 px-4 py-3 rounded-lg transition-all ${
+                  activeTab === 'profesionales' ? 'bg-purple-500/20 text-purple-400' : 'text-gray-300 hover:bg-purple-500/10 hover:text-purple-300'
+                }`}
+              >
+                <User className="w-5 h-5" />
+                <span>Profesionales</span>
+              </button>
+              
+              <button
+                onClick={() => { setActiveTab('registro'); setMobileMenuOpen(false); }}
+                className={`flex items-center space-x-2 px-4 py-3 rounded-lg transition-all ${
+                  activeTab === 'registro' ? 'bg-purple-500/20 text-purple-400' : 'text-gray-300 hover:bg-purple-500/10 hover:text-purple-300'
+                }`}
+              >
+                <Plus className="w-5 h-5" />
+                <span>Registro de Pagos</span>
+              </button>
+              
+              <button
+                onClick={() => { setActiveTab('dashboard'); setMobileMenuOpen(false); }}
+                className={`flex items-center space-x-2 px-4 py-3 rounded-lg transition-all ${
+                  activeTab === 'dashboard' ? 'bg-purple-500/20 text-purple-400' : 'text-gray-300 hover:bg-purple-500/10 hover:text-purple-300'
+                }`}
+              >
+                <TrendingUp className="w-5 h-5" />
+                <span>Dashboard</span>
+              </button>
+              
+              <button
+                onClick={() => { setActiveTab('deudas'); setMobileMenuOpen(false); }}
+                className={`flex items-center space-x-2 px-4 py-3 rounded-lg transition-all ${
+                  activeTab === 'deudas' ? 'bg-purple-500/20 text-purple-400' : 'text-gray-300 hover:bg-purple-500/10 hover:text-purple-300'
+                }`}
+              >
+                <DollarSign className="w-5 h-5" />
+                <span>Estado de Deudas</span>
+              </button>
+              
+              <button
+                onClick={() => { setActiveTab('reportes'); setMobileMenuOpen(false); }}
+                className={`flex items-center space-x-2 px-4 py-3 rounded-lg transition-all ${
+                  activeTab === 'reportes' ? 'bg-purple-500/20 text-purple-400' : 'text-gray-300 hover:bg-purple-500/10 hover:text-purple-300'
+                }`}
+              >
+                <TrendingUp className="w-5 h-5" />
+                <span>Reportes</span>
+              </button>
+              
+              <button
+                onClick={() => { setActiveTab('logs'); setMobileMenuOpen(false); }}
+                className={`flex items-center space-x-2 px-4 py-3 rounded-lg transition-all ${
+                  activeTab === 'logs' ? 'bg-purple-500/20 text-purple-400' : 'text-gray-300 hover:bg-purple-500/10 hover:text-purple-300'
+                }`}
+              >
+                <Calendar className="w-5 h-5" />
+                <span>Logs</span>
+              </button>
+            </nav>
+          )}
         </div>
       </div>
 
-      <div className="container mx-auto px-6 py-8">
+      <div className="container mx-auto px-4 sm:px-6 py-4 sm:py-8">
         {/* Notificación de éxito */}
         {showNotification && (
-          <div className="fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-xl shadow-lg z-50 animate-bounce">
+          <div className="fixed top-4 right-2 sm:right-4 bg-green-500 text-white px-4 sm:px-6 py-3 rounded-xl shadow-lg z-50 animate-bounce max-w-sm sm:max-w-md">
             <div className="flex items-center space-x-2">
-              <Check className="w-5 h-5" />
-              <span>{showNotification}</span>
+              <Check className="w-4 h-4 sm:w-5 sm:h-5" />
+              <span className="text-sm sm:text-base">{showNotification}</span>
             </div>
           </div>
         )}
         {/* Tab: Profesionales */}
         {activeTab === 'profesionales' && (
           <div className="space-y-8">
-            <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">
+              <h2 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
                 Gestión de Profesionales
               </h2>
               <button
                 onClick={() => setShowAddProfesional(true)}
-                className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 px-6 py-3 rounded-xl font-semibold transition-all transform hover:scale-[1.02] flex items-center space-x-2"
+                className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-semibold transition-all transform hover:scale-[1.02] flex items-center space-x-2 text-sm sm:text-base"
               >
-                <Plus className="w-5 h-5" />
+                <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
                 <span>Agregar Profesional</span>
               </button>
             </div>
 
             {showAddProfesional && (
-              <div className="bg-black/20 backdrop-blur-md rounded-2xl border border-purple-500/20 p-8">
-                <h3 className="text-xl font-semibold mb-6 text-purple-300">Nuevo Profesional</h3>
-                <div className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="bg-black/20 backdrop-blur-md rounded-2xl border border-purple-500/20 p-4 sm:p-6 lg:p-8">
+                <h3 className="text-lg sm:text-xl font-semibold mb-4 sm:mb-6 text-purple-300">Nuevo Profesional</h3>
+                <div className="space-y-4 sm:space-y-6">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
                     <div>
                       <label className="block text-sm font-medium text-purple-300 mb-2">
                         Nombre Completo
@@ -912,7 +990,7 @@ const ConsultorioPagosApp = () => {
                           setNewProfesional({...newProfesional, nombre: e.target.value});
                           setErroresProfesional({...erroresProfesional, nombre: validarNombre(e.target.value)});
                         }}
-                        className={`w-full px-4 py-3 bg-black/30 border rounded-xl focus:outline-none transition-colors text-white ${
+                        className={`w-full px-3 sm:px-4 py-2 sm:py-3 bg-black/30 border rounded-xl focus:outline-none transition-colors text-white text-sm sm:text-base ${
                           erroresProfesional.nombre ? 'border-red-500 focus:border-red-400' : 'border-purple-500/30 focus:border-purple-400'
                         }`}
                         placeholder="Dr. Juan Pérez"
@@ -932,7 +1010,7 @@ const ConsultorioPagosApp = () => {
                           setNewProfesional({...newProfesional, especialidad: e.target.value});
                           setErroresProfesional({...erroresProfesional, especialidad: validarEspecialidad(e.target.value)});
                         }}
-                        className={`w-full px-4 py-3 bg-black/30 border rounded-xl focus:outline-none transition-colors text-white ${
+                        className={`w-full px-3 sm:px-4 py-2 sm:py-3 bg-black/30 border rounded-xl focus:outline-none transition-colors text-white text-sm sm:text-base ${
                           erroresProfesional.especialidad ? 'border-red-500 focus:border-red-400' : 'border-purple-500/30 focus:border-purple-400'
                         }`}
                         placeholder="Cardiología"
@@ -943,7 +1021,7 @@ const ConsultorioPagosApp = () => {
                     </div>
                   </div>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
                     <div>
                       <label className="block text-sm font-medium text-purple-300 mb-2">
                         Porcentaje del Profesional (%)
@@ -1007,31 +1085,31 @@ const ConsultorioPagosApp = () => {
               </div>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
               {profesionales.map(profesional => (
-                <div key={profesional.id} className="bg-black/20 backdrop-blur-md rounded-2xl border border-purple-500/20 p-6">
+                <div key={profesional.id} className="bg-black/20 backdrop-blur-md rounded-2xl border border-purple-500/20 p-4 sm:p-6">
                   <div className="flex items-center space-x-3 mb-4">
-                    <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full flex items-center justify-center">
-                      <User className="w-6 h-6 text-white" />
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full flex items-center justify-center">
+                      <User className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                     </div>
                     <div>
-                      <h3 className="font-semibold text-lg">{profesional.nombre}</h3>
-                      <p className="text-purple-300 text-sm">{profesional.especialidad}</p>
+                      <h3 className="font-semibold text-base sm:text-lg">{profesional.nombre}</h3>
+                      <p className="text-purple-300 text-xs sm:text-sm">{profesional.especialidad}</p>
                     </div>
                   </div>
                   
                   <div className="space-y-2">
                     <div className="flex justify-between">
-                      <span className="text-gray-300">Porcentaje:</span>
-                      <span className="text-purple-400 font-semibold">{profesional.porcentaje}%</span>
+                      <span className="text-gray-300 text-sm">Porcentaje:</span>
+                      <span className="text-purple-400 font-semibold text-sm">{profesional.porcentaje}%</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-300">Valor turno:</span>
-                      <span className="text-green-400 font-semibold">${profesional.valorTurno.toLocaleString()}</span>
+                      <span className="text-gray-300 text-sm">Valor turno:</span>
+                      <span className="text-green-400 font-semibold text-sm">${profesional.valorTurno.toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-300">Ganancia por turno:</span>
-                      <span className="text-blue-400 font-semibold">${(profesional.valorTurno * profesional.porcentaje / 100).toLocaleString()}</span>
+                      <span className="text-gray-300 text-sm">Ganancia por turno:</span>
+                      <span className="text-blue-400 font-semibold text-sm">${(profesional.valorTurno * profesional.porcentaje / 100).toLocaleString()}</span>
                     </div>
                   </div>
                 </div>
@@ -1042,14 +1120,14 @@ const ConsultorioPagosApp = () => {
 
         {/* Tab: Registro de Pagos */}
         {activeTab === 'registro' && (
-          <div className="space-y-8">
-            <div className="bg-black/20 backdrop-blur-md rounded-2xl border border-purple-500/20 p-8">
-              <h2 className="text-2xl font-bold mb-6 bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
+          <div className="space-y-6 sm:space-y-8">
+            <div className="bg-black/20 backdrop-blur-md rounded-2xl border border-purple-500/20 p-4 sm:p-6 lg:p-8">
+              <h2 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
                 Registrar Nuevo Pago
               </h2>
               
-              <div className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-4 sm:space-y-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
                   <div>
                     <label className="block text-sm font-medium text-purple-300 mb-2">
                       Profesional
@@ -1082,7 +1160,7 @@ const ConsultorioPagosApp = () => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
                   <div>
                     <label className="block text-sm font-medium text-purple-300 mb-2">
                       Método de Pago
@@ -1090,7 +1168,7 @@ const ConsultorioPagosApp = () => {
                     <select
                       value={newPago.metodoPago}
                       onChange={(e) => setNewPago({...newPago, metodoPago: e.target.value})}
-                      className="w-full px-4 py-3 bg-black/30 border border-purple-500/30 rounded-xl focus:border-purple-400 focus:outline-none transition-colors text-white"
+                      className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-black/30 border border-purple-500/30 rounded-xl focus:border-purple-400 focus:outline-none transition-colors text-white text-sm sm:text-base"
                     >
                       <option value="efectivo">💵 Efectivo</option>
                       <option value="transferencia">🏦 Transferencia</option>
@@ -1193,38 +1271,38 @@ const ConsultorioPagosApp = () => {
 
         {/* Tab: Dashboard */}
         {activeTab === 'dashboard' && (
-          <div className="space-y-8">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-gradient-to-br from-green-500/20 to-emerald-500/20 backdrop-blur-md rounded-2xl border border-green-500/30 p-6">
+          <div className="space-y-6 sm:space-y-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+              <div className="bg-gradient-to-br from-green-500/20 to-emerald-500/20 backdrop-blur-md rounded-2xl border border-green-500/30 p-4 sm:p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-green-300 text-sm font-medium">Efectivo Hoy</p>
-                    <p className="text-2xl font-bold text-green-400">${stats.totalEfectivoHoy.toLocaleString()}</p>
+                    <p className="text-green-300 text-xs sm:text-sm font-medium">Efectivo Hoy</p>
+                    <p className="text-lg sm:text-2xl font-bold text-green-400">${stats.totalEfectivoHoy.toLocaleString()}</p>
                     <p className="text-xs text-green-300 mt-1">Clínica cobra</p>
                   </div>
-                  <DollarSign className="w-8 h-8 text-green-400" />
+                  <DollarSign className="w-6 h-6 sm:w-8 sm:h-8 text-green-400" />
                 </div>
               </div>
               
-              <div className="bg-gradient-to-br from-blue-500/20 to-cyan-500/20 backdrop-blur-md rounded-2xl border border-blue-500/30 p-6">
+              <div className="bg-gradient-to-br from-blue-500/20 to-cyan-500/20 backdrop-blur-md rounded-2xl border border-blue-500/30 p-4 sm:p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-blue-300 text-sm font-medium">Transferencias Hoy</p>
-                    <p className="text-2xl font-bold text-blue-400">${stats.totalTransferenciaHoy.toLocaleString()}</p>
+                    <p className="text-blue-300 text-xs sm:text-sm font-medium">Transferencias Hoy</p>
+                    <p className="text-lg sm:text-2xl font-bold text-blue-400">${stats.totalTransferenciaHoy.toLocaleString()}</p>
                     <p className="text-xs text-blue-300 mt-1">Profesional cobra</p>
                   </div>
-                  <CreditCard className="w-8 h-8 text-blue-400" />
+                  <CreditCard className="w-6 h-6 sm:w-8 sm:h-8 text-blue-400" />
                 </div>
               </div>
               
-              <div className="bg-gradient-to-br from-purple-500/20 to-pink-500/20 backdrop-blur-md rounded-2xl border border-purple-500/30 p-6">
+              <div className="bg-gradient-to-br from-purple-500/20 to-pink-500/20 backdrop-blur-md rounded-2xl border border-purple-500/30 p-4 sm:p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-purple-300 text-sm font-medium">Pagos Hoy</p>
-                    <p className="text-2xl font-bold text-purple-400">{stats.pagosHoy}</p>
+                    <p className="text-purple-300 text-xs sm:text-sm font-medium">Pagos Hoy</p>
+                    <p className="text-lg sm:text-2xl font-bold text-purple-400">{stats.pagosHoy}</p>
                     <p className="text-xs text-purple-300 mt-1">Total registrados</p>
                   </div>
-                  <Calendar className="w-8 h-8 text-purple-400" />
+                  <Calendar className="w-6 h-6 sm:w-8 sm:h-8 text-purple-400" />
                 </div>
               </div>
             </div>
@@ -1893,19 +1971,19 @@ const ConsultorioPagosApp = () => {
 
       {/* Modal de Comprobantes */}
       {showComprobanteModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-gradient-to-br from-slate-900 to-purple-900 rounded-2xl border border-purple-500/30 p-8 max-w-md w-full mx-4">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-semibold text-purple-300">Agregar Comprobantes</h3>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-gradient-to-br from-slate-900 to-purple-900 rounded-2xl border border-purple-500/30 p-4 sm:p-6 lg:p-8 max-w-md w-full mx-4">
+            <div className="flex items-center justify-between mb-4 sm:mb-6">
+              <h3 className="text-lg sm:text-xl font-semibold text-purple-300">Agregar Comprobantes</h3>
               <button
                 onClick={() => setShowComprobanteModal(false)}
                 className="text-gray-400 hover:text-white transition-colors"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
             </div>
             
-            <div className="space-y-6">
+            <div className="space-y-4 sm:space-y-6">
               <div>
                 <label className="block text-sm font-medium text-purple-300 mb-2">
                   Comprobante del Profesional (Opcional)
@@ -1914,7 +1992,7 @@ const ConsultorioPagosApp = () => {
                   type="text"
                   value={comprobantes.profesional}
                   onChange={(e) => setComprobantes({...comprobantes, profesional: e.target.value})}
-                  className="w-full px-4 py-3 bg-black/30 border border-purple-500/30 rounded-xl focus:border-purple-400 focus:outline-none transition-colors text-white"
+                  className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-black/30 border border-purple-500/30 rounded-xl focus:border-purple-400 focus:outline-none transition-colors text-white text-sm sm:text-base"
                   placeholder="Ej: Número de operación, referencia, etc."
                 />
                 <p className="text-xs text-gray-400 mt-1">
@@ -1930,7 +2008,7 @@ const ConsultorioPagosApp = () => {
                   type="text"
                   value={comprobantes.clinica}
                   onChange={(e) => setComprobantes({...comprobantes, clinica: e.target.value})}
-                  className="w-full px-4 py-3 bg-black/30 border border-purple-500/30 rounded-xl focus:border-purple-400 focus:outline-none transition-colors text-white"
+                  className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-black/30 border border-purple-500/30 rounded-xl focus:border-purple-400 focus:outline-none transition-colors text-white text-sm sm:text-base"
                   placeholder="Ej: Número de transferencia de pago, etc."
                 />
                 <p className="text-xs text-gray-400 mt-1">
@@ -1939,16 +2017,16 @@ const ConsultorioPagosApp = () => {
               </div>
             </div>
             
-            <div className="flex space-x-4 mt-8">
+            <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4 mt-6 sm:mt-8">
               <button
                 onClick={confirmarComprobantes}
-                className="flex-1 bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 px-6 py-3 rounded-xl font-semibold transition-all"
+                className="flex-1 bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-semibold transition-all text-sm sm:text-base"
               >
                 Confirmar
               </button>
               <button
                 onClick={() => setShowComprobanteModal(false)}
-                className="flex-1 bg-gray-600 hover:bg-gray-700 px-6 py-3 rounded-xl font-semibold transition-all"
+                className="flex-1 bg-gray-600 hover:bg-gray-700 px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-semibold transition-all text-sm sm:text-base"
               >
                 Cancelar
               </button>
