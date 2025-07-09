@@ -54,8 +54,9 @@ MedPay AI es una aplicación web moderna para la gestión integral de pagos en c
 - **Frontend**: React 18 + Vite
 - **Styling**: Tailwind CSS
 - **Iconos**: Lucide React
-- **Base de Datos**: Supabase (configurado)
+- **Base de Datos**: Supabase (PostgreSQL)
 - **Hosting**: Vercel
+- **Estado**: React Hooks + Supabase Realtime
 
 ## 📱 Responsive Design
 
@@ -126,6 +127,18 @@ El proyecto está optimizado para despliegue en Vercel con:
 - Configuración de rutas para SPA
 - Optimización de assets
 - CDN global
+- Variables de entorno para Supabase
+
+### Variables de Entorno Requeridas
+
+```env
+VITE_SUPABASE_URL=https://tu-proyecto.supabase.co
+VITE_SUPABASE_ANON_KEY=tu-anon-key-aqui
+```
+
+### Configuración de Supabase
+
+Ver archivo `SUPABASE_SETUP.md` para la configuración completa de la base de datos.
 
 ## 📈 Próximas Mejoras
 
