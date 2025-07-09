@@ -121,58 +121,37 @@ const ConsultorioPagosApp = () => {
 
 
 
-  // Funciones de validación
+  // Validaciones mejoradas (del .txt fusionado)
   const validarNombre = (nombre) => {
     const regex = /^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/;
-    if (!nombre.trim()) {
-      return 'El nombre es obligatorio';
-    }
-    if (nombre.trim().length < 2) {
-      return 'El nombre debe tener al menos 2 caracteres';
-    }
-    if (!regex.test(nombre)) {
-      return 'El nombre solo puede contener letras y espacios';
-    }
+    if (!nombre.trim()) return 'El nombre es obligatorio';
+    if (nombre.trim().length < 2) return 'El nombre debe tener al menos 2 caracteres';
+    if (!regex.test(nombre)) return 'El nombre solo puede contener letras y espacios';
     return '';
   };
 
   const validarEspecialidad = (especialidad) => {
     const regex = /^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/;
-    if (!especialidad.trim()) {
-      return 'La especialidad es obligatoria';
-    }
-    if (especialidad.trim().length < 2) {
-      return 'La especialidad debe tener al menos 2 caracteres';
-    }
-    if (!regex.test(especialidad)) {
-      return 'La especialidad solo puede contener letras y espacios';
-    }
+    if (!especialidad.trim()) return 'La especialidad es obligatoria';
+    if (especialidad.trim().length < 2) return 'La especialidad debe tener al menos 2 caracteres';
+    if (!regex.test(especialidad)) return 'La especialidad solo puede contener letras y espacios';
     return '';
   };
 
   const validarPorcentaje = (porcentaje) => {
     const num = parseFloat(porcentaje);
-    if (!porcentaje) {
-      return 'El porcentaje es obligatorio';
-    }
-    if (isNaN(num) || num <= 0 || num > 100) {
-      return 'El porcentaje debe ser un número entre 1 y 100';
-    }
+    if (!porcentaje) return 'El porcentaje es obligatorio';
+    if (isNaN(num) || num <= 0 || num > 100) return 'El porcentaje debe ser un número entre 1 y 100';
     return '';
   };
 
   const validarValorTurno = (valorTurno) => {
     const num = parseFloat(valorTurno);
-    if (!valorTurno) {
-      return 'El valor del turno es obligatorio';
-    }
-    if (isNaN(num) || num <= 0) {
-      return 'El valor del turno debe ser un número mayor a 0';
-    }
+    if (!valorTurno) return 'El valor del turno es obligatorio';
+    if (isNaN(num) || num <= 0) return 'El valor del turno debe ser un número mayor a 0';
     return '';
   };
 
-  // Función para validar el profesional completo
   const validarProfesionalCompleto = () => {
     const errores = {
       nombre: validarNombre(newProfesional.nombre),
@@ -180,10 +159,7 @@ const ConsultorioPagosApp = () => {
       porcentaje: validarPorcentaje(newProfesional.porcentaje),
       valorTurno: validarValorTurno(newProfesional.valorTurno)
     };
-    
     setErroresProfesional(errores);
-    
-    // Retorna true si no hay errores
     return !Object.values(errores).some(error => error !== '');
   };
 
@@ -205,23 +181,15 @@ const ConsultorioPagosApp = () => {
         };
         
         await addProfesional(profesionalData);
-        
-        // Refrescar datos para asegurar sincronización
         await refreshData();
         
-        // Limpiar formulario
+        // Limpiar formulario y cerrar modal
         setNewProfesional({ nombre: '', especialidad: '', porcentaje: '', valorTurno: '' });
         setErroresProfesional({ nombre: '', especialidad: '', porcentaje: '', valorTurno: '' });
-        
-        // Cerrar modal
         setShowAddProfesional(false);
-        
-        // Mostrar notificación de éxito
-        showSuccessNotification('Profesional agregado con éxito');
-        
-        // Asegurar que estamos en la pestaña de profesionales
         setActiveTab('profesionales');
         
+        showSuccessNotification('Profesional agregado con éxito');
       } catch (error) {
         console.error('Error adding profesional:', error);
         showSuccessNotification('Error al agregar profesional: ' + (error.message || 'Error desconocido'));
@@ -255,6 +223,7 @@ const ConsultorioPagosApp = () => {
         
         await addPago(pagoData);
         
+        // Limpiar formulario
         setNewPago({
           profesionalId: '',
           paciente: '',
@@ -268,8 +237,10 @@ const ConsultorioPagosApp = () => {
         showSuccessNotification('Pago registrado con éxito');
       } catch (error) {
         console.error('Error adding pago:', error);
-        showSuccessNotification('Error al registrar pago');
+        showSuccessNotification('Error al registrar pago: ' + (error.message || 'Error desconocido'));
       }
+    } else {
+      showSuccessNotification('Por favor completa todos los campos obligatorios');
     }
   };
 
