@@ -55,6 +55,41 @@ export function useSupabase() {
     }
   }
 
+  const updateProfesional = async (id, updates) => {
+    try {
+      const updatedProfesional = await db.updateProfesional(id, updates)
+      setProfesionales(prev => 
+        prev.map(p => p.id === id ? updatedProfesional : p)
+      )
+      
+      await addLog('profesional_actualizado', `Profesional actualizado: ${updatedProfesional.nombre}`, {
+        id,
+        cambios: updates
+      })
+      
+      return updatedProfesional
+    } catch (err) {
+      console.error('Error updating profesional:', err)
+      throw err
+    }
+  }
+
+  const deleteProfesional = async (id) => {
+    try {
+      const profesional = profesionales.find(p => p.id === id)
+      await db.deleteProfesional(id)
+      setProfesionales(prev => prev.filter(p => p.id !== id))
+      
+      await addLog('profesional_eliminado', `Profesional eliminado: ${profesional?.nombre}`, {
+        id,
+        nombre: profesional?.nombre
+      })
+    } catch (err) {
+      console.error('Error deleting profesional:', err)
+      throw err
+    }
+  }
+
   // PAGOS
   const addPago = async (pagoData) => {
     try {
@@ -127,6 +162,26 @@ export function useSupabase() {
     }
   }
 
+  const deletePago = async (pagoId) => {
+    try {
+      const pago = pagos.find(p => p.id === pagoId)
+      await db.deletePago(pagoId)
+      
+      // Recargar pagos
+      const updatedPagos = await db.getPagos()
+      setPagos(updatedPagos)
+      
+      await addLog('pago_eliminado', `Pago eliminado: ${pago?.profesionalNombre} - ${pago?.paciente}`, {
+        id: pagoId,
+        monto: pago?.monto,
+        fecha: pago?.fecha
+      })
+    } catch (err) {
+      console.error('Error deleting pago:', err)
+      throw err
+    }
+  }
+
   // LOGS
   const addLog = async (tipo, descripcion, detalles = {}) => {
     try {
@@ -188,18 +243,23 @@ export function useSupabase() {
     loading,
     error,
     
-    // Acciones
+    // Acciones de Profesionales
     addProfesional,
+    updateProfesional,
+    deleteProfesional,
+    
+    // Acciones de Pagos
     addPago,
     updatePago,
     markPagoAsCompleted,
+    deletePago,
+    
+    // Acciones de Logs
     addLog,
-    clearAllData,
-    refreshData,
     
     // Utilidades
-    setProfesionales,
-    setPagos,
-    setLogs
+    clearAllData,
+    refreshData,
+    loadAllData
   }
 }

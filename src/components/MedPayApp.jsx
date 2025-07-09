@@ -1,151 +1,26 @@
-import React, { useState } from 'react';
-import { Plus, User, CreditCard, DollarSign, Calendar, TrendingUp, Zap, Upload, Check, Clock, FileImage, X, Menu } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Plus, User, CreditCard, DollarSign, Calendar, TrendingUp, Zap, Upload, Check, Clock, FileImage, X, Menu, AlertCircle } from 'lucide-react';
+import { useSupabase } from '../hooks/useSupabase';
 
 const ConsultorioPagosApp = () => {
   const [activeTab, setActiveTab] = useState('profesionales');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
-  // Datos de prueba
-  const datosDeEjemplo = {
-    profesionales: [
-      {
-        id: 1,
-        nombre: 'Dr. Juan Pérez',
-        especialidad: 'Cardiología',
-        porcentaje: 70,
-        valorTurno: 15000
-      },
-      {
-        id: 2,
-        nombre: 'Dra. María González',
-        especialidad: 'Neurología',
-        porcentaje: 65,
-        valorTurno: 18000
-      },
-      {
-        id: 3,
-        nombre: 'Dr. Carlos López',
-        especialidad: 'Traumatología',
-        porcentaje: 75,
-        valorTurno: 12000
-      }
-    ],
-    pagos: [
-      {
-        id: 1001,
-        profesionalId: 1,
-        profesionalNombre: 'Dr. Juan Pérez',
-        paciente: 'Ana Martínez',
-        metodoPago: 'efectivo',
-        fecha: '2025-01-08',
-        hora: '09:30',
-        monto: 15000,
-        porcentajeProfesional: 70,
-        gananciaProfesional: 10500,
-        gananciaClinica: 4500,
-        estado: 'pendiente',
-        comprobante: null,
-        comprobanteClinica: null
-      },
-      {
-        id: 1002,
-        profesionalId: 2,
-        profesionalNombre: 'Dra. María González',
-        paciente: 'Roberto Silva',
-        metodoPago: 'transferencia',
-        fecha: '2025-01-08',
-        hora: '10:15',
-        monto: 18000,
-        porcentajeProfesional: 65,
-        gananciaProfesional: 11700,
-        gananciaClinica: 6300,
-        estado: 'recibida',
-        comprobante: 'OP123456789',
-        comprobanteClinica: null
-      },
-      {
-        id: 1003,
-        profesionalId: 1,
-        profesionalNombre: 'Dr. Juan Pérez',
-        paciente: 'Laura Fernández',
-        metodoPago: 'transferencia',
-        fecha: '2025-01-07',
-        hora: '14:00',
-        monto: 15000,
-        porcentajeProfesional: 70,
-        gananciaProfesional: 10500,
-        gananciaClinica: 4500,
-        estado: 'recibida',
-        comprobante: null,
-        comprobanteClinica: null
-      },
-      {
-        id: 1004,
-        profesionalId: 3,
-        profesionalNombre: 'Dr. Carlos López',
-        paciente: 'Miguel Rodríguez',
-        metodoPago: 'efectivo',
-        fecha: '2025-01-07',
-        hora: '16:30',
-        monto: 12000,
-        porcentajeProfesional: 75,
-        gananciaProfesional: 9000,
-        gananciaClinica: 3000,
-        estado: 'pagado',
-        comprobante: null,
-        comprobanteClinica: null,
-        fechaPago: '2025-01-08T10:00:00.000Z'
-      },
-      {
-        id: 1005,
-        profesionalId: 2,
-        profesionalNombre: 'Dra. María González',
-        paciente: 'Sofia Herrera',
-        metodoPago: 'transferencia',
-        fecha: '2025-01-06',
-        hora: '11:00',
-        monto: 18000,
-        porcentajeProfesional: 65,
-        gananciaProfesional: 11700,
-        gananciaClinica: 6300,
-        estado: 'completada',
-        comprobante: 'TRF987654321',
-        comprobanteClinica: 'PAG456123',
-        fechaPago: '2025-01-07T15:30:00.000Z'
-      }
-    ],
-    logs: [
-      {
-        id: 2001,
-        timestamp: '2025-01-08T09:00:00.000Z',
-        tipo: 'profesional_agregado',
-        descripcion: 'Profesional agregado: Dr. Juan Pérez',
-        detalles: {
-          especialidad: 'Cardiología',
-          porcentaje: 70,
-          valorTurno: 15000
-        },
-        usuario: 'Admin'
-      },
-      {
-        id: 2002,
-        timestamp: '2025-01-08T09:30:00.000Z',
-        tipo: 'pago_registrado',
-        descripcion: 'Pago registrado: Dr. Juan Pérez - Ana Martínez',
-        detalles: {
-          metodoPago: 'efectivo',
-          monto: 15000,
-          fecha: '2025-01-08',
-          hora: '09:30'
-        },
-        usuario: 'Admin'
-      }
-    ]
-  };
-  
-  const [profesionales, setProfesionales] = useState(datosDeEjemplo.profesionales);
-  const [pagos, setPagos] = useState(datosDeEjemplo.pagos);
-  const [logs, setLogs] = useState(datosDeEjemplo.logs);
+  // Hook de Supabase
+  const {
+    profesionales,
+    pagos,
+    logs,
+    loading,
+    error,
+    addProfesional,
+    addPago,
+    updatePago,
+    markPagoAsCompleted,
+    addLog,
+    clearAllData,
+    refreshData
+  } = useSupabase();
   const [showAddProfesional, setShowAddProfesional] = useState(false);
   const [showNotification, setShowNotification] = useState('');
   const [showComprobanteModal, setShowComprobanteModal] = useState(false);
@@ -199,18 +74,7 @@ const ConsultorioPagosApp = () => {
     comprobante: ''
   });
 
-  // Función para agregar logs
-  const addLog = (tipo, descripcion, detalles = {}) => {
-    const log = {
-      id: Date.now(),
-      timestamp: new Date().toISOString(),
-      tipo,
-      descripcion,
-      detalles,
-      usuario: 'Admin' // Podrías hacer esto dinámico
-    };
-    setLogs(prev => [log, ...prev]);
-  };
+
 
   // Funciones de validación
   const validarNombre = (nombre) => {
@@ -284,75 +148,68 @@ const ConsultorioPagosApp = () => {
     setTimeout(() => setShowNotification(''), 3000);
   };
 
-  const handleAddProfesional = () => {
+  const handleAddProfesional = async () => {
     if (validarProfesionalCompleto()) {
-      const profesional = {
-        id: Date.now(),
-        nombre: newProfesional.nombre.trim(),
-        especialidad: newProfesional.especialidad.trim(),
-        porcentaje: parseFloat(newProfesional.porcentaje),
-        valorTurno: parseFloat(newProfesional.valorTurno)
-      };
-      setProfesionales([...profesionales, profesional]);
-      
-      // Agregar log
-      addLog('profesional_agregado', `Profesional agregado: ${profesional.nombre}`, {
-        especialidad: profesional.especialidad,
-        porcentaje: profesional.porcentaje,
-        valorTurno: profesional.valorTurno
-      });
-      
-      setNewProfesional({ nombre: '', especialidad: '', porcentaje: '', valorTurno: '' });
-      setErroresProfesional({ nombre: '', especialidad: '', porcentaje: '', valorTurno: '' });
-      setShowAddProfesional(false);
-      showSuccessNotification('Profesional agregado con éxito');
+      try {
+        const profesionalData = {
+          nombre: newProfesional.nombre.trim(),
+          especialidad: newProfesional.especialidad.trim(),
+          porcentaje: parseFloat(newProfesional.porcentaje),
+          valor_turno: parseFloat(newProfesional.valorTurno)
+        };
+        
+        await addProfesional(profesionalData);
+        
+        setNewProfesional({ nombre: '', especialidad: '', porcentaje: '', valorTurno: '' });
+        setErroresProfesional({ nombre: '', especialidad: '', porcentaje: '', valorTurno: '' });
+        setShowAddProfesional(false);
+        showSuccessNotification('Profesional agregado con éxito');
+      } catch (error) {
+        console.error('Error adding profesional:', error);
+        showSuccessNotification('Error al agregar profesional');
+      }
     }
   };
 
-  const handleAddPago = () => {
+  const handleAddPago = async () => {
     if (newPago.profesionalId && newPago.paciente && newPago.monto) {
-      const profesional = profesionales.find(p => p.id === parseInt(newPago.profesionalId));
-      const monto = parseFloat(newPago.monto);
-      
-      const pago = {
-        id: Date.now(),
-        profesionalId: parseInt(newPago.profesionalId),
-        profesionalNombre: profesional.nombre,
-        paciente: newPago.paciente,
-        metodoPago: newPago.metodoPago,
-        fecha: newPago.fecha,
-        hora: newPago.hora,
-        monto: monto,
-        porcentajeProfesional: profesional.porcentaje,
-        gananciaProfesional: monto * (profesional.porcentaje / 100),
-        gananciaClinica: monto * ((100 - profesional.porcentaje) / 100),
-        estado: newPago.metodoPago === 'efectivo' ? 'pendiente' : 'recibida',
-        comprobante: newPago.comprobante || null,
-        comprobanteClinica: null
-      };
-      
-      setPagos([...pagos, pago]);
-      
-      // Agregar log
-      addLog('pago_registrado', `Pago registrado: ${profesional.nombre} - ${newPago.paciente}`, {
-        metodoPago: newPago.metodoPago,
-        monto: monto,
-        fecha: newPago.fecha,
-        hora: newPago.hora,
-        tieneComprobante: !!newPago.comprobante
-      });
-      
-      setNewPago({
-        profesionalId: '',
-        paciente: '',
-        metodoPago: 'efectivo',
-        fecha: new Date().toISOString().split('T')[0],
-        hora: '09:00',
-        monto: '',
-        comprobante: ''
-      });
-      
-      showSuccessNotification('Pago registrado con éxito');
+      try {
+        const profesional = profesionales.find(p => p.id === parseInt(newPago.profesionalId));
+        const monto = parseFloat(newPago.monto);
+        
+        const pagoData = {
+          profesionalId: parseInt(newPago.profesionalId),
+          profesionalNombre: profesional.nombre,
+          paciente: newPago.paciente,
+          metodoPago: newPago.metodoPago,
+          fecha: newPago.fecha,
+          hora: newPago.hora,
+          monto: monto,
+          porcentajeProfesional: profesional.porcentaje,
+          gananciaProfesional: monto * (profesional.porcentaje / 100),
+          gananciaClinica: monto * ((100 - profesional.porcentaje) / 100),
+          estado: newPago.metodoPago === 'efectivo' ? 'pendiente' : 'recibida',
+          comprobante: newPago.comprobante || null,
+          comprobanteClinica: null
+        };
+        
+        await addPago(pagoData);
+        
+        setNewPago({
+          profesionalId: '',
+          paciente: '',
+          metodoPago: 'efectivo',
+          fecha: new Date().toISOString().split('T')[0],
+          hora: '09:00',
+          monto: '',
+          comprobante: ''
+        });
+        
+        showSuccessNotification('Pago registrado con éxito');
+      } catch (error) {
+        console.error('Error adding pago:', error);
+        showSuccessNotification('Error al registrar pago');
+      }
     }
   };
 
@@ -370,33 +227,17 @@ const ConsultorioPagosApp = () => {
   };
 
   // Función para completar el marcado de pago con los comprobantes
-  const completarMarcadoPago = (pagoId, tipo, comprobanteProfesional, comprobanteClinica) => {
-    setPagos(pagos.map(pago => {
-      if (pago.id === pagoId) {
-        const nuevoEstado = tipo === 'efectivo' ? 'pagado' : 'completada';
-        
-        // Agregar log
-        addLog('pago_marcado', `Pago marcado como ${nuevoEstado}: ${pago.profesionalNombre} - ${pago.paciente}`, {
-          metodoPago: pago.metodoPago,
-          monto: pago.monto,
-          estadoAnterior: pago.estado,
-          estadoNuevo: nuevoEstado,
-          tieneComprobanteProfesional: !!comprobanteProfesional,
-          tieneComprobanteClinica: !!comprobanteClinica
-        });
-        
-        return {
-          ...pago, 
-          estado: nuevoEstado, 
-          fechaPago: new Date().toISOString(), 
-          comprobante: comprobanteProfesional || pago.comprobante,
-          comprobanteClinica
-        };
-      }
-      return pago;
-    }));
-    
-    showSuccessNotification('Pago marcado como completado');
+  const completarMarcadoPago = async (pagoId, tipo, comprobanteProfesional, comprobanteClinica) => {
+    try {
+      const nuevoEstado = tipo === 'efectivo' ? 'pagado' : 'completada';
+      
+      await markPagoAsCompleted(pagoId, nuevoEstado, comprobanteProfesional, comprobanteClinica);
+      
+      showSuccessNotification('Pago marcado como completado');
+    } catch (error) {
+      console.error('Error marking pago as completed:', error);
+      showSuccessNotification('Error al marcar pago como completado');
+    }
   };
 
   // Función para confirmar comprobantes desde el modal
@@ -782,12 +623,15 @@ const ConsultorioPagosApp = () => {
             </div>
             <div className="flex items-center space-x-2 sm:space-x-4">
               <button
-                onClick={() => {
+                onClick={async () => {
                   if (confirm('¿Estás seguro de que quieres limpiar todos los datos? Esta acción no se puede deshacer.')) {
-                    setProfesionales([]);
-                    setPagos([]);
-                    setLogs([]);
-                    showSuccessNotification('Datos limpiados correctamente');
+                    try {
+                      await clearAllData();
+                      showSuccessNotification('Datos limpiados correctamente');
+                    } catch (error) {
+                      console.error('Error clearing data:', error);
+                      showSuccessNotification('Error al limpiar datos');
+                    }
                   }
                 }}
                 className="bg-red-600/20 hover:bg-red-600/30 px-2 py-1 sm:px-3 rounded-lg text-xs font-medium transition-all flex items-center space-x-1 border border-red-500/30"
@@ -949,6 +793,26 @@ const ConsultorioPagosApp = () => {
       </div>
 
       <div className="container mx-auto px-4 sm:px-6 py-4 sm:py-8">
+        {/* Loading indicator */}
+        {loading && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+            <div className="bg-gradient-to-br from-slate-900 to-purple-900 rounded-2xl border border-purple-500/30 p-8 flex items-center space-x-4">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-400"></div>
+              <span className="text-white text-lg">Cargando datos...</span>
+            </div>
+          </div>
+        )}
+
+        {/* Error notification */}
+        {error && (
+          <div className="fixed top-4 right-2 sm:right-4 bg-red-500 text-white px-4 sm:px-6 py-3 rounded-xl shadow-lg z-50 animate-bounce max-w-sm sm:max-w-md">
+            <div className="flex items-center space-x-2">
+              <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5" />
+              <span className="text-sm sm:text-base">Error: {error}</span>
+            </div>
+          </div>
+        )}
+
         {/* Notificación de éxito */}
         {showNotification && (
           <div className="fixed top-4 right-2 sm:right-4 bg-green-500 text-white px-4 sm:px-6 py-3 rounded-xl shadow-lg z-50 animate-bounce max-w-sm sm:max-w-md">
