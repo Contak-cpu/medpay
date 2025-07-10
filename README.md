@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # 🚀 MedPay AI - Sistema de Gestión de Pagos
 
 Sistema completo de gestión de pagos para consultorios médicos con React, Vite, Tailwind CSS y Supabase.
@@ -123,3 +124,6 @@ El proyecto está configurado para deploy automático en Vercel. Solo necesitas:
 ---
 
 **✅ Listo para producción**: Sistema completo y optimizado para consultorios médicos.
+=======
+# medpay
+>>>>>>> 1269aafdb87fdc723b25df901180f591267906f8
