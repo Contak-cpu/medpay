@@ -22,6 +22,7 @@ const TestDataControl = React.lazy(() => import('./TestDataControl'));
 const MarcarPagoModal = React.lazy(() => import('./Deudas/MarcarPagoModal'));
 const ExportModal = React.lazy(() => import('./Reportes/ExportModal'));
 const NotificationSystem = React.lazy(() => import('./NotificationSystem'));
+const ComprobanteModal = React.lazy(() => import('./Deudas/ComprobanteModal'));
 
 // Componente de loading optimizado
 const LoadingSpinner = ({ message = "Cargando..." }) => (
@@ -46,6 +47,7 @@ const ConsultorioPagosApp = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showAddProfesional, setShowAddProfesional] = useState(false);
   const [showComprobanteModal, setShowComprobanteModal] = useState(false);
+  const [comprobanteData, setComprobanteData] = useState(null);
   const [pagoParaComprobar, setPagoParaComprobar] = useState(null);
   const [comprobantes, setComprobantes] = useState({
     profesional: '',
@@ -182,35 +184,29 @@ const ConsultorioPagosApp = () => {
         <div className="bg-black/20 backdrop-blur-md border-b border-purple-500/20">
           <div className="container mx-auto px-4 sm:px-6 py-4">
             <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-r from-purple-500 to-blue-500 rounded-xl flex items-center justify-center">
-                  <Zap className="w-4 h-4 sm:w-6 sm:h-6 text-white" />
+              <div className="flex items-center space-x-4">
+                <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-r from-purple-500 to-blue-500 rounded-2xl flex items-center justify-center overflow-hidden">
+                  <img 
+                    src="/images/logo.png" 
+                    alt="Logo MedPay" 
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                      e.target.nextSibling.style.display = 'flex';
+                    }}
+                  />
+                  <div className="hidden items-center justify-center w-full h-full">
+                    <Zap className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
+                  </div>
                 </div>
                 <div>
-                  <h1 className="text-lg sm:text-2xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
+                  <h1 className="text-xl sm:text-3xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
                     MedPay AI
                   </h1>
-                  <p className="text-purple-300 text-xs sm:text-sm">Sistema de Gestión de Pagos</p>
+                  <p className="text-purple-300 text-sm sm:text-base">Sistema de Gestión de Pagos</p>
                 </div>
               </div>
               <div className="flex items-center space-x-2 sm:space-x-4">
-                <button
-                  onClick={async () => {
-                    if (confirm('¿Estás seguro de que quieres limpiar todos los datos? Esta acción no se puede deshacer.')) {
-                      try {
-                        await clearAllData();
-                        showSuccess('Datos limpiados correctamente');
-                      } catch (error) {
-                        console.error('Error clearing data:', error);
-                        showError('Error al limpiar datos');
-                      }
-                    }
-                  }}
-                  className="bg-red-600/20 hover:bg-red-600/30 px-2 py-1 sm:px-3 rounded-lg text-xs font-medium transition-all flex items-center space-x-1 border border-red-500/30"
-                >
-                  <X className="w-3 h-3" />
-                  <span className="hidden sm:inline">Limpiar Datos</span>
-                </button>
                 <div className="text-right">
                   <p className="text-xs sm:text-sm text-purple-300">Hoy</p>
                   <p className="text-sm sm:text-lg font-semibold">{new Date().toLocaleDateString('es-AR')}</p>
@@ -231,9 +227,22 @@ const ConsultorioPagosApp = () => {
         <div className="container mx-auto px-4 sm:px-6 py-4 sm:py-8">
           {/* Sistema de notificaciones optimizado */}
           <LazyComponent>
-            <NotificationSystem 
-              notifications={notifications} 
-              onRemove={removeNotification} 
+            <ComprobanteModal
+              isOpen={showComprobanteModal}
+              onConfirm={handleComprobanteConfirm}
+              onCancel={handleComprobanteCancel}
+              title="Ingresar Comprobantes"
+              message={comprobanteData?.sinComprobante ? 
+                "Algunos pagos no tienen comprobante del profesional. Puedes ingresar uno general." : 
+                "Ingresa los comprobantes de pago (opcional)."
+              }
+            />
+          </LazyComponent>
+
+          <LazyComponent>
+            <NotificationSystem
+              notifications={notifications}
+              removeNotification={removeNotification}
             />
           </LazyComponent>
           
@@ -386,6 +395,17 @@ const ConsultorioPagosApp = () => {
               setShowMarcarPagoModal(false);
               setPagoParaMarcar(null);
             }}
+          />
+        </LazyComponent>
+
+        <LazyComponent>
+          <ComprobanteModal
+            isOpen={showComprobanteModal}
+            onConfirm={handleComprobanteConfirm}
+            onCancel={handleComprobanteCancel}
+            profesionalId={comprobanteData?.profesionalId}
+            pagosAfectados={comprobanteData?.pagosAfectados}
+            sinComprobante={comprobanteData?.sinComprobante}
           />
         </LazyComponent>
 
@@ -567,13 +587,18 @@ const ConsultorioPagosApp = () => {
     );
     
     const sinComprobante = pagosAfectados.some(p => !p.comprobante);
-    let comprobanteProfesional = null;
     
-    if (sinComprobante) {
-      comprobanteProfesional = prompt('Algunos pagos no tienen comprobante del profesional. Ingresa uno general (opcional):');
-    }
-    
-    const comprobanteClinica = prompt('Ingresa el comprobante de pago de la clínica (opcional):');
+    // Mostrar modal para comprobantes
+    setComprobanteData({
+      profesionalId,
+      pagosAfectados,
+      sinComprobante
+    });
+    setShowComprobanteModal(true);
+  };
+
+  const handleComprobanteConfirm = ({ comprobanteProfesional, comprobanteClinica }) => {
+    const { profesionalId, pagosAfectados } = comprobanteData;
     
     setPagos(pagos.map(pago => 
       pago.profesionalId === profesionalId && 
@@ -597,7 +622,14 @@ const ConsultorioPagosApp = () => {
       tieneComprobanteClinica: !!comprobanteClinica
     });
     
+    setShowComprobanteModal(false);
+    setComprobanteData(null);
     showSuccess('Comisiones marcadas como cobradas');
+  };
+
+  const handleComprobanteCancel = () => {
+    setShowComprobanteModal(false);
+    setComprobanteData(null);
   };
 
   const aplicarFiltros = (pagosList) => {

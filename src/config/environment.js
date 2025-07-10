@@ -1,7 +1,7 @@
 // Configuración de entorno
 export const ENV_CONFIG = {
   // Cambiar a false para desactivar datos de testeo
-  ENABLE_TEST_DATA: true,
+  ENABLE_TEST_DATA: false,
   
   // Entorno actual
   IS_DEVELOPMENT: import.meta.env.DEV,

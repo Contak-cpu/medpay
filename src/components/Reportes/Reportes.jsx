@@ -15,6 +15,23 @@ const Reportes = ({
 }) => {
   const reportes = calcularReportes();
 
+  // Generar los últimos 3 meses
+  const getUltimosMeses = () => {
+    const meses = [];
+    const hoy = new Date();
+    
+    for (let i = 0; i < 3; i++) {
+      const fecha = new Date(hoy.getFullYear(), hoy.getMonth() - i, 1);
+      const nombreMes = fecha.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
+      const valor = fecha.toISOString().slice(0, 7); // YYYY-MM
+      meses.push({ nombre: nombreMes, valor });
+    }
+    
+    return meses;
+  };
+
+  const ultimosMeses = getUltimosMeses();
+
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between">
@@ -39,10 +56,61 @@ const Reportes = ({
         </div>
       </div>
       
+      {/* Filtros por Meses - Siempre visibles */}
+      <div className="bg-black/20 backdrop-blur-md rounded-2xl border border-purple-500/20 p-6">
+        <h3 className="text-lg font-semibold text-purple-300 mb-4 flex items-center space-x-2">
+          <Calendar className="w-5 h-5" />
+          <span>Filtros por Mes</span>
+        </h3>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {ultimosMeses.map((mes, index) => (
+            <button
+              key={mes.valor}
+              onClick={() => {
+                const fechaInicio = mes.valor + '-01';
+                const fechaFin = new Date(new Date(mes.valor + '-01').getFullYear(), new Date(mes.valor + '-01').getMonth() + 1, 0).toISOString().split('T')[0];
+                
+                setFiltrosReportes({
+                  ...filtrosReportes,
+                  fechaDesde: fechaInicio,
+                  fechaHasta: fechaFin,
+                  mesSeleccionado: mes.valor
+                });
+              }}
+              className={`px-4 py-3 rounded-xl font-medium transition-all ${
+                filtrosReportes.mesSeleccionado === mes.valor
+                  ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg shadow-purple-500/25'
+                  : 'bg-black/30 text-gray-300 hover:text-purple-300 hover:bg-purple-500/10 border border-purple-500/20'
+              }`}
+            >
+              <div className="text-center">
+                <div className="text-sm font-semibold capitalize">{mes.nombre}</div>
+                {index === 0 && <div className="text-xs opacity-75">Mes actual</div>}
+              </div>
+            </button>
+          ))}
+        </div>
+        
+        {/* Botón para limpiar filtro de mes */}
+        {filtrosReportes.mesSeleccionado && (
+          <button
+            onClick={() => setFiltrosReportes({
+              ...filtrosReportes,
+              fechaDesde: '',
+              fechaHasta: '',
+              mesSeleccionado: ''
+            })}
+            className="mt-3 bg-gray-600 hover:bg-gray-700 px-4 py-2 rounded-lg text-sm font-medium transition-all"
+          >
+            Limpiar Filtro de Mes
+          </button>
+        )}
+      </div>
+      
       {/* Filtros expandibles para reportes */}
       {filtrosReportes.mostrarFiltros && (
         <div className="bg-black/20 backdrop-blur-md rounded-2xl border border-purple-500/20 p-6">
-          <h3 className="text-lg font-semibold text-purple-300 mb-4">Filtros de Reporte</h3>
+          <h3 className="text-lg font-semibold text-purple-300 mb-4">Filtros Avanzados</h3>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
               <label className="block text-sm font-medium text-purple-300 mb-2">Profesional</label>
@@ -150,11 +218,12 @@ const Reportes = ({
               estado: '',
               rangoMonto: '',
               ordenar: '',
+              mesSeleccionado: '',
               mostrarFiltros: true
             })}
             className="mt-4 bg-gray-600 hover:bg-gray-700 px-4 py-2 rounded-lg text-sm font-medium transition-all"
           >
-            Limpiar Filtros
+            Limpiar Todos los Filtros
           </button>
         </div>
       )}
