@@ -18,6 +18,7 @@ const useMedPayStore = create((set, get) => ({
     estado: '',
     rangoMonto: '',
     ordenar: '',
+    mesSeleccionado: '',
     mostrarFiltros: false
   },
   loading: false,

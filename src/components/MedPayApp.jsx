@@ -207,23 +207,6 @@ const ConsultorioPagosApp = () => {
                 </div>
               </div>
               <div className="flex items-center space-x-2 sm:space-x-4">
-                <button
-                  onClick={async () => {
-                    if (confirm('¿Estás seguro de que quieres limpiar todos los datos? Esta acción no se puede deshacer.')) {
-                      try {
-                        await clearAllData();
-                        showSuccess('Datos limpiados correctamente');
-                      } catch (error) {
-                        console.error('Error clearing data:', error);
-                        showError('Error al limpiar datos');
-                      }
-                    }
-                  }}
-                  className="bg-red-600/20 hover:bg-red-600/30 px-2 py-1 sm:px-3 rounded-lg text-xs font-medium transition-all flex items-center space-x-1 border border-red-500/30"
-                >
-                  <X className="w-3 h-3" />
-                  <span className="hidden sm:inline">Limpiar Datos</span>
-                </button>
                 <div className="text-right">
                   <p className="text-xs sm:text-sm text-purple-300">Hoy</p>
                   <p className="text-sm sm:text-lg font-semibold">{new Date().toLocaleDateString('es-AR')}</p>
